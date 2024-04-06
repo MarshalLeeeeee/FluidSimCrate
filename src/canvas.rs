@@ -1,3 +1,5 @@
+/// Module for simple render
+
 use std::{thread, time};
 use minifb::{Window, WindowOptions, Scale, Key};
 
