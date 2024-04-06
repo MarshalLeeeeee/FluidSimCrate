@@ -1,4 +1,3 @@
-use fluid_sim::utils::type_of;
 use fluid_sim::canvas;
 
 fn main() {
@@ -6,8 +5,8 @@ fn main() {
     let height = 640;
     let t0 = std::time::SystemTime::now();
     let mut buffer: Vec<canvas::RGBAColor> = Vec::with_capacity(width*height);
-    for i in 0..width {
-        for j in 0..height {
+    for _ in 0..width {
+        for _ in 0..height {
             buffer.push(canvas::RGBAColor::new(0, 0, 0, 0));
         }
     }
