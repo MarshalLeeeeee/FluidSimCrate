@@ -3,6 +3,8 @@ use serde_json::{self, Value};
 use fluid_sim::parser;
 use fluid_sim::utils::type_of;
 
+// run with 
+// cargo run --bin parser_main -- configs/debug.json --width 480 --height 640 --tick_dt 100
 fn main() {
     let parser = parser::parse();
     println!("Parsed data: {}", type_of(&parser));

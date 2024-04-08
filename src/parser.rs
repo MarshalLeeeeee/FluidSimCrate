@@ -1,7 +1,8 @@
 /// Module for parse configuration
 
 use std::env;
-use std::collections::HashMap;
+use std::fs::File;
+use std::io::BufReader;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -23,8 +24,6 @@ struct Parser {
 }
 
 /// The default values are provided
-// TODO: enable file read
-// TODO: enable command args parser
 pub fn parse() -> Value {
     let raw_parser = RawParser {
         width: 480,
@@ -34,6 +33,23 @@ pub fn parse() -> Value {
     let parser_str = serde_json::to_string(&raw_parser).expect("Failed to serialize JSON");
     let parser = serde_json::from_str(&parser_str).expect("Failed to parse JSON");
     let (file_name, cmd_keys, cmd_values) = parse_from_cmd();
+
+    // read from json
+    if let Ok(file) = File::open(file_name) {
+        let reader = BufReader::new(file);
+        if let Ok(json_data) = serde_json::from_reader::<BufReader<File>, Value>(reader) {
+            for (key, value) in json_data.as_object().unwrap() {
+                println!("conf {:?} {:?}", key, value); // TODO
+            }
+        }
+    }
+
+    // read from cmd
+    let k_v: Vec<_> = cmd_keys.iter().zip(cmd_values.iter()).collect();
+    for (k, v) in k_v {
+        println!("conf k {} v {}", k, v);
+    }
+
     parser
 }
 
@@ -65,8 +81,8 @@ fn parse_from_cmd() -> (String, Vec<String>, Vec<String>) {
     let mut vec_cmd_k: Vec<String> = Vec::new();
     let mut vec_cmd_v: Vec<String> = Vec::new();
     for i in 0..((cmd_arg_cnt-1) / 2) {
-        let i1 = 2 * i + 1;
-        let i2 = 2 * i + 2;
+        let i1 = 2 * i + offset;
+        let i2 = 2 * i + offset + 1;
         if let Some(k) = cmd_args.get(i1) {
             if let Some(v) = cmd_args.get(i2) {
                 vec_cmd_k.push(String::from(&k[2..]));
