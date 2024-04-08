@@ -3,6 +3,7 @@ use fluid_sim::canvas;
 fn main() {
     let width = 480;
     let height = 640;
+    let tick_dt = 100;
     let t0 = std::time::SystemTime::now();
     let mut buffer: Vec<canvas::RGBAColor> = Vec::with_capacity(width*height);
     for _ in 0..width {
@@ -11,7 +12,7 @@ fn main() {
         }
     }
 
-    let mut canvas = canvas::Canvas::new(480, 640);
+    let mut canvas = canvas::Canvas::new(width, height, tick_dt);
     while canvas.is_valid() {
         let dt = std::time::SystemTime::now().duration_since(t0).expect("Expect delta time").subsec_nanos() as f64 / 1_000_000_000_f64;
         for i in 0..width {

@@ -38,7 +38,7 @@ pub struct Canvas {
 }
 impl Canvas {
     /// Construct a canvas with configs
-    pub fn new (width: usize, height: usize) -> Self {
+    pub fn new (width: usize, height: usize, tick_dt: u64) -> Self {
         let buffer = vec![0; width*height];
         let window = Window::new(
             "Rust Example - Display Color Data",
@@ -58,7 +58,7 @@ impl Canvas {
             buffer,
             window,
             tick_ts: time::SystemTime::now(),
-            tick_dt: 100,
+            tick_dt: tick_dt,
         }
     }
 
