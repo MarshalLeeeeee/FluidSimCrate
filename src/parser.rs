@@ -3,70 +3,64 @@
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Value, json};
 
-/// RawParser defines all configs
-///  - width(usize): The width of the canvas.
-///  - height(usize): The height of the canvas.
-///  - tick_dt(u64): The minimal refresh rate of the canvas.
-#[derive(Deserialize, Serialize)]
-struct RawParser {
-    width: usize,
-    height: usize,
-    tick_dt: u64,
-}
-
-// TODO: encapsulate
-struct Parser {
-    json: Value,
-
-}
-
-/// The default values are provided
+/// Return the configuration
+///
+/// The default configs are first provided
+///
+/// User can change the configs by command line in the following format
+///
+/// cargo run ... -- [json_file_path] --k1 v1 --k2 2 ...
+///  - ```[json_file_path]``` is an optional cmd. When the length of user command is odd, the first user command will be considered as json_file_path
+///  - ```--k1 v1``` should be paired, so that certain config with name k1 will be updated to v1
+///
+/// The override priority is: cmd_args > json > default
+///
+/// Args that are not defined in default configs will be not be added.
+///
+/// The return value is serde_json::Value
 pub fn parse() -> Value {
-    let raw_parser = RawParser {
-        width: 480,
-        height: 640,
-        tick_dt: 100,
-    };
-    let parser_str = serde_json::to_string(&raw_parser).expect("Failed to serialize JSON");
-    let parser = serde_json::from_str(&parser_str).expect("Failed to parse JSON");
+    // The default values are provided here
+    let mut json: Value = json!({
+        "width": 480,
+        "height": 640,
+        "tick_dt": 100,
+    });
     let (file_name, cmd_keys, cmd_values) = parse_from_cmd();
 
     // read from json
     if let Ok(file) = File::open(file_name) {
         let reader = BufReader::new(file);
         if let Ok(json_data) = serde_json::from_reader::<BufReader<File>, Value>(reader) {
-            for (key, value) in json_data.as_object().unwrap() {
-                println!("conf {:?} {:?}", key, value); // TODO
-            }
+            json_value_update(&mut json, json_data);
         }
     }
 
     // read from cmd
     let k_v: Vec<_> = cmd_keys.iter().zip(cmd_values.iter()).collect();
+    let mut json_map = Map::new();
     for (k, v) in k_v {
-        println!("conf k {} v {}", k, v);
+        if let Ok(num) = v.parse::<u64>() {
+            json_map.insert(k.clone(), Value::Number(serde_json::Number::from(num)));
+        }
+        else {
+            json_map.insert(k.clone(), Value::String(v.clone()));
+        }
+    }
+    if let Ok(json_cmd) = serde_json::to_value(json_map) {
+        json_value_update(&mut json, json_cmd);
     }
 
-    parser
+    json
 }
 
-// enum CmdTypeEnum {
-//     CmdString,
-//     CmdU64,
-//     CmdUsize,
-//     CmdD64,
-// }
-
-// const CMD_TYPE: HashMap<&str, CmdTypeEnum> =  {
-//     let mut map = HashMap::new();
-//     map.insert("config_json", CmdTypeEnum::CmdString);
-//     map.insert("width", CmdTypeEnum::CmdUsize);
-//     map
-// };
-
+/// Simple parse of the user commands
+///
+/// Return 
+/// - json_file_path, empty when no json_file_path is provided according to the rules (in method parse)
+/// - vector of key names
+/// - vector of value (before parsed)
 fn parse_from_cmd() -> (String, Vec<String>, Vec<String>) {
     let cmd_args: Vec<String> = env::args().collect();
     let cmd_arg_cnt = cmd_args.len();
@@ -91,4 +85,13 @@ fn parse_from_cmd() -> (String, Vec<String>, Vec<String>) {
         }
     }
     (String::from(file_name), vec_cmd_k, vec_cmd_v)
+}
+
+/// Update value of v2 to v1, if the key of v2 exists in v1
+fn json_value_update(v1: &mut Value, v2: Value) {
+    for (key, value) in v2.as_object().unwrap() {
+        if let Some(v) = v1.get_mut(key) {
+            *v = value.clone();
+        }
+    }
 }

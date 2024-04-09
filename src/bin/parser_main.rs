@@ -1,23 +1,14 @@
-use serde::{Deserialize, Serialize};
-use serde_json::{self, Value};
 use fluid_sim::parser;
 use fluid_sim::utils::type_of;
 
 // run with 
-// cargo run --bin parser_main -- configs/debug.json --width 480 --height 640 --tick_dt 100
+// cargo run --bin parser_main -- configs/debug.json --width 350 --height 300 --tick_dt 30
 fn main() {
     let parser = parser::parse();
     println!("Parsed data: {}", type_of(&parser));
+    println!("---------------");
     if let Some(w) = parser.get("width") {
-        let mut ww: usize = 0;
         println!("width: {} {}", w, type_of(w));
-        println!(
-            "Conf: {} {}",
-            type_of(&w.as_number().unwrap()),
-            type_of(&w.as_u64().unwrap()),
-        );
-        ww = w.as_u64().unwrap() as usize;
-        println!("w: {w}");
     }
     println!("---------------");
     if let Some(h) = parser.get("height") {

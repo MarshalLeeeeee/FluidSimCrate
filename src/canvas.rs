@@ -1,6 +1,7 @@
 /// Module for simple render
 
 use std::{thread, time};
+use serde_json::Value;
 use minifb::{Window, WindowOptions, Scale, Key};
 
 /// Any customized color type should implement this trait
@@ -37,6 +38,17 @@ pub struct Canvas {
     tick_dt: u64,
 }
 impl Canvas {
+    /// Construct a canvas from json configs
+    pub fn new_by_parser(parser: &Value) -> Self {
+        let width = parser.get("width").expect("Should have config for width")
+            .as_u64().expect("Should have config for width as unsigned") as usize;
+        let height = parser.get("height").expect("Should have config for width")
+            .as_u64().expect("Should have config for width as unsigned") as usize;
+        let tick_dt = parser.get("tick_dt").expect("Should have config for width")
+            .as_u64().expect("Should have config for width as unsigned") as u64;
+        Canvas::new(width, height, tick_dt)
+    }
+
     /// Construct a canvas with configs
     pub fn new (width: usize, height: usize, tick_dt: u64) -> Self {
         let buffer = vec![0; width*height];
@@ -92,5 +104,15 @@ impl Canvas {
             panic!("Tick canvas error: {}", e);
         });
         self.tick_ts = std::time::SystemTime::now();
+    }
+
+    /// Get the width of the canvas
+    pub fn get_width(&self) -> usize {
+        self.width
+    }
+
+    /// Get the height of the canvas
+    pub fn get_height(&self) -> usize {
+        self.height
     }
 }
