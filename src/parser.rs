@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::BufReader;
 use serde_json::{Map, Value, json};
 
+/// Since every module might have its own configuration, developer can use this function to register configs from different modules
 pub fn register(vec_map: Vec<Map<String, Value>>) -> Map<String, Value> {
     let mut json_map = Map::new();
     for m in vec_map {
@@ -13,6 +14,7 @@ pub fn register(vec_map: Vec<Map<String, Value>>) -> Map<String, Value> {
     json_map
 }
 
+/// Override map_target with all (k,v) pairs in map_source
 fn merge_map(map_target: &mut Map<String, Value>, map_source: Map<String, Value>) {
     for (k, v) in map_source.iter() {
         map_target.insert(k.to_string(), v.clone());
