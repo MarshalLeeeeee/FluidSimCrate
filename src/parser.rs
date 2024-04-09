@@ -5,6 +5,20 @@ use std::fs::File;
 use std::io::BufReader;
 use serde_json::{Map, Value, json};
 
+pub fn register(vec_map: Vec<Map<String, Value>>) -> Map<String, Value> {
+    let mut json_map = Map::new();
+    for m in vec_map {
+        merge_map(&mut json_map, m)
+    }
+    json_map
+}
+
+fn merge_map(map_target: &mut Map<String, Value>, map_source: Map<String, Value>) {
+    for (k, v) in map_source.iter() {
+        map_target.insert(k.to_string(), v.clone());
+    }
+}
+
 /// Return the configuration
 ///
 /// The default configs are first provided
@@ -20,13 +34,14 @@ use serde_json::{Map, Value, json};
 /// Args that are not defined in default configs will be not be added.
 ///
 /// The return value is serde_json::Value
-pub fn parse() -> Value {
+pub fn parse(map: Map<String, Value>) -> Value {
     // The default values are provided here
-    let mut json: Value = json!({
-        "width": 480,
-        "height": 640,
-        "tick_dt": 100,
-    });
+    // let mut json: Value = json!({
+    //     "width": 480,
+    //     "height": 640,
+    //     "tick_dt": 100,
+    // });
+    let mut json = serde_json::to_value(map).expect("Should have collected default configs");
     let (file_name, cmd_keys, cmd_values) = parse_from_cmd();
 
     // read from json

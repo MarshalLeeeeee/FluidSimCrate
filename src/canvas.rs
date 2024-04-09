@@ -1,7 +1,7 @@
 /// Module for simple render
 
 use std::{thread, time};
-use serde_json::Value;
+use serde_json::{Value, Map, Number};
 use minifb::{Window, WindowOptions, Scale, Key};
 
 /// Any customized color type should implement this trait
@@ -114,5 +114,14 @@ impl Canvas {
     /// Get the height of the canvas
     pub fn get_height(&self) -> usize {
         self.height
+    }
+
+    /// Provide default configs for Canvas
+    pub fn get_config_map() -> Map<String, Value> {
+        let mut m = Map::new();
+        m.insert(String::from("width"), Value::Number(Number::from(480_usize)));
+        m.insert(String::from("height"), Value::Number(Number::from(640_usize)));
+        m.insert(String::from("tick_dt"), Value::Number(Number::from(100_u64)));
+        m
     }
 }

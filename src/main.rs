@@ -2,7 +2,11 @@ use fluid_sim::parser;
 use fluid_sim::canvas;
 
 fn main() {
-    let parser = parser::parse();
+    let raw_parser_maps = vec!(
+        canvas::Canvas::get_config_map(),
+    );
+    let parser_map = parser::register(raw_parser_maps);
+    let parser = parser::parse(parser_map);
 
     let mut canvas = canvas::Canvas::new_by_parser(&parser);
     let width = canvas.get_width();
