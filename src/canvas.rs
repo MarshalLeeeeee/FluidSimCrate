@@ -16,6 +16,14 @@ impl RGBAColor {
     pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self(r, g, b, a)
     }
+    pub fn mix(&self, self_ratio: f64, other: &Self) -> Self {
+        Self(
+            (self.0 as f64 * self_ratio + other.0 as f64 * (1_f64 - self_ratio)).round() as u8,
+            (self.1 as f64 * self_ratio + other.1 as f64 * (1_f64 - self_ratio)).round() as u8,
+            (self.2 as f64 * self_ratio + other.2 as f64 * (1_f64 - self_ratio)).round() as u8,
+            (self.3 as f64 * self_ratio + other.3 as f64 * (1_f64 - self_ratio)).round() as u8,
+        )
+    }
 }
 impl Color for RGBAColor {
     fn to_u32(&self) -> u32 {
