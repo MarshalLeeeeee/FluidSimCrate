@@ -130,6 +130,43 @@ fn advection(density: &na::DMatrix::<f64>, rho_air: f64, rho_smoke: f64, velocit
 
 fn pressure_solution(density: &na::DMatrix::<f64>, velocity: &na::DMatrix::<na::Vector2<f64>>, force: &na::Vector2<f64>) {
     // TODO: A linear system solver
+    // let sz = 1000;
+    // let r = na::DMatrix::<f64>::from_fn(sz, sz, |i, j| {
+    //     if rand::random::<f64>() > 0.9_f64 { rand::random::<f64>() }
+    //     else { 0_f64 }
+    // });
+    // let mut b = na::DMatrix::<f64>::zeros(sz, 1);
+    // b = b.add_scalar(1_f64);
+
+    // let lu = na::LU::new(r);
+    // if let Some(x) = lu.solve(&b) {
+    //     println!("ok!");
+    //     // println!("{}", x);
+    // }
+
+    // let qr = na::QR::new(r);
+    // if let Some(x) = qr.solve(&b) {
+    //     println!("ok!");
+    //     // println!("{}", x);
+    // }
+
+    // let fplu = na::FullPivLU::new(r);
+    // if let Some(x) = fplu.solve(&b) {
+    //     println!("ok!");
+    //     // println!("{}", x);
+    // }
+
+
+    // use sprs::{CsMat, TriMat, SpSolver};
+    // use sprs::SprsShape;
+    // // 创建一个高维稀疏矩阵和一个向量b
+    // let matrix_a = CsMat::new((3, 3), vec![0, 2, 3], vec![0, 1, 2], vec![4.0, 5.0, 6.0]);
+    // let vector_b = vec![1.0, 2.0, 3.0];
+
+    // // 解线性系统 Ax=b
+    // let solver = SpSolver::factorize(&matrix_a).unwrap();
+    // let solution = solver.solve(&vector_b).unwrap();
+    // println!("Solution: {:?}", solution);
 }
 
 fn projection(density: &na::DMatrix::<f64>, velocity: &na::DMatrix::<na::Vector2<f64>>, force: &na::Vector2<f64>) {
