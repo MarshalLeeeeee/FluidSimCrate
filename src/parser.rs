@@ -3,7 +3,7 @@
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
-use serde_json::{Map, Value, json};
+use serde_json::{Map, Value};
 
 /// Since every module might have its own configuration, developer can use this function to register configs from different modules
 pub fn register(vec_map: Vec<Map<String, Value>>) -> Map<String, Value> {
