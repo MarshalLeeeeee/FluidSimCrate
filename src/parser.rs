@@ -27,9 +27,9 @@ fn merge_map(map_target: &mut Map<String, Value>, map_source: Map<String, Value>
 ///
 /// User can change the configs by command line in the following format
 ///
-/// cargo run ... -- [json_file_path] --k1 v1 --k2 2 ...
+/// cargo run ... -- [json_file_path] k1=v1 k2=v2 ...
 ///  - ```[json_file_path]``` is an optional cmd. When the length of user command is odd, the first user command will be considered as json_file_path
-///  - ```--k1 v1``` should be paired, so that certain config with name k1 will be updated to v1
+///  - ```k1=v1``` should be paired, so that certain config with name k1 will be updated to v1
 ///
 /// The override priority is: cmd_args > json > default
 ///
@@ -44,13 +44,13 @@ pub fn parse(map: Map<String, Value>) -> Value {
     //     "tick_dt": 100,
     // });
     let mut json = serde_json::to_value(map).expect("Should have collected default configs");
-    let (file_name, cmd_keys, cmd_values) = parse_from_cmd();
+    let (file_name, cmd_keys, cmd_values) = _parse_from_cmd();
 
     // read from json
     if let Ok(file) = File::open(file_name) {
         let reader = BufReader::new(file);
         if let Ok(json_data) = serde_json::from_reader::<BufReader<File>, Value>(reader) {
-            json_value_update(&mut json, json_data);
+            _json_value_update(&mut json, json_data);
         }
     }
 
@@ -66,7 +66,7 @@ pub fn parse(map: Map<String, Value>) -> Value {
         }
     }
     if let Ok(json_cmd) = serde_json::to_value(json_map) {
-        json_value_update(&mut json, json_cmd);
+        _json_value_update(&mut json, json_cmd);
     }
 
     json
@@ -78,26 +78,29 @@ pub fn parse(map: Map<String, Value>) -> Value {
 /// - json_file_path, empty when no json_file_path is provided according to the rules (in method parse)
 /// - vector of key names
 /// - vector of value (before parsed)
-fn parse_from_cmd() -> (String, Vec<String>, Vec<String>) {
+fn _parse_from_cmd() -> (String, Vec<String>, Vec<String>) {
     let cmd_args: Vec<String> = env::args().collect();
     let cmd_arg_cnt = cmd_args.len();
     let mut file_name = "";
     let mut offset = 1;
+
     if cmd_arg_cnt % 2 == 0 {
         if let Some(arg) = cmd_args.get(1) {
             file_name = arg;
         }
         offset = 2;
     }
+    
     let mut vec_cmd_k: Vec<String> = Vec::new();
     let mut vec_cmd_v: Vec<String> = Vec::new();
-    for i in 0..((cmd_arg_cnt-1) / 2) {
-        let i1 = 2 * i + offset;
-        let i2 = 2 * i + offset + 1;
-        if let Some(k) = cmd_args.get(i1) {
-            if let Some(v) = cmd_args.get(i2) {
-                vec_cmd_k.push(String::from(&k[2..]));
-                vec_cmd_v.push(String::from(&v[..]));
+    for cmd_idx in offset..cmd_arg_cnt {
+        if let Some(cmd) = cmd_args.get(cmd_idx) {
+            let cmds: Vec<_> = cmd.split('=').collect();
+            if let Some(k) = cmds.get(0) {
+                if let Some(v) = cmds.get(1) {
+                    vec_cmd_k.push(String::from(*k));
+                    vec_cmd_v.push(String::from(*v));
+                }
             }
         }
     }
@@ -105,7 +108,7 @@ fn parse_from_cmd() -> (String, Vec<String>, Vec<String>) {
 }
 
 /// Update value of v2 to v1, if the key of v2 exists in v1
-fn json_value_update(v1: &mut Value, v2: Value) {
+fn _json_value_update(v1: &mut Value, v2: Value) {
     for (key, value) in v2.as_object().unwrap() {
         if let Some(v) = v1.get_mut(key) {
             *v = value.clone();
