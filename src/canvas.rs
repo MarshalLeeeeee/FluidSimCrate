@@ -16,7 +16,7 @@ impl RGBAColor {
     pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self(r, g, b, a)
     }
-    pub fn mix(&self, self_ratio: f64, other: &Self) -> Self {
+    pub fn mix(&self, other: &Self, self_ratio: f64) -> Self {
         Self(
             (self.0 as f64 * self_ratio + other.0 as f64 * (1_f64 - self_ratio)).round() as u8,
             (self.1 as f64 * self_ratio + other.1 as f64 * (1_f64 - self_ratio)).round() as u8,
@@ -29,6 +29,7 @@ impl Color for RGBAColor {
     fn to_u32(&self) -> u32 {
         ((self.3 as u32) << 24) | ((self.0 as u32) << 16) | ((self.1 as u32) << 8) | (self.2 as u32)
     }
+    
 }
 
 /// The window for simple render of color
@@ -65,7 +66,7 @@ impl Canvas {
             width,
             height,
             WindowOptions {
-                resize: false,
+                resize: true,
                 scale: Scale::X1,
                 ..WindowOptions::default()
             },
