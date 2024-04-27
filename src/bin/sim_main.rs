@@ -15,7 +15,7 @@ fn main() {
     let mut scene = scene::SingleSmokeGridScene::new_by_parser(&parser);
 
     while canvas.is_valid() {
-        scene.step();
+        scene.sim();
         canvas.refresh(&scene.visualize_density());
     }
 }

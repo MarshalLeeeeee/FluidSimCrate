@@ -11,7 +11,7 @@ use crate::parser;
 pub trait Scene {
     fn new_by_parser(parser: &Value) -> Self;
     fn get_config_map() -> Map<String, Value>;
-    fn step(&mut self);
+    fn sim(&mut self);
 }
 
 /// TODO: use sample
@@ -235,7 +235,7 @@ impl Scene for SingleSmokeGridScene {
         m
     }
 
-    fn step(&mut self) {
+    fn sim(&mut self) {
         let rho = self._solve_rho();
         let (fx, fy) = self._solve_force(&rho);
         self._velocity_advection(fx, fy);
