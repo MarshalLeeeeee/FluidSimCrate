@@ -27,9 +27,9 @@ fn _merge_map(map_target: &mut Map<String, Value>, map_source: Map<String, Value
 ///
 /// User can change the configs by command line in the following format
 ///
-/// cargo run ... -- [json_file_path] k1=v1 k2=v2 ...
-///  - ```[json_file_path]``` is an optional cmd. When the length of user command is odd, the first user command will be considered as json_file_path
-///  - ```k1=v1``` should be paired, so that certain config with name k1 will be updated to v1
+/// cargo run ... -- [json_file=json_file_path] k1=v1 k2=v2 ...
+///  - ```[json_file=json_file_path]``` is an optional cmd to load the target json file.
+///  - ```k1=v1``` config with name k1 will be updated to v1
 ///
 /// The override priority is: cmd_args > json > default
 ///
@@ -38,11 +38,6 @@ fn _merge_map(map_target: &mut Map<String, Value>, map_source: Map<String, Value
 /// The return value is serde_json::Value
 pub fn parse(map: Map<String, Value>) -> Value {
     // The default values are provided here
-    // let mut json: Value = json!({
-    //     "width": 480,
-    //     "height": 640,
-    //     "tick_dt": 100,
-    // });
     let mut json = serde_json::to_value(map).expect("Should have collected default configs");
     let (file_name, cmd_keys, cmd_values) = _parse_from_cmd();
 
@@ -78,7 +73,7 @@ pub fn parse(map: Map<String, Value>) -> Value {
 /// Simple parse of the user commands
 ///
 /// Return 
-/// - json_file_path, empty when no json_file_path is provided according to the rules (in method parse)
+/// - json_file_path, empty when no json_file_path is provided
 /// - vector of key names
 /// - vector of value (before parsed)
 fn _parse_from_cmd() -> (String, Vec<String>, Vec<String>) {
