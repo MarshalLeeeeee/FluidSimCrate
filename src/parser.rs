@@ -9,13 +9,13 @@ use serde_json::{Map, Value};
 pub fn register(vec_map: Vec<Map<String, Value>>) -> Map<String, Value> {
     let mut json_map = Map::new();
     for m in vec_map {
-        merge_map(&mut json_map, m)
+        _merge_map(&mut json_map, m)
     }
     json_map
 }
 
 /// Override map_target with all (k,v) pairs in map_source
-fn merge_map(map_target: &mut Map<String, Value>, map_source: Map<String, Value>) {
+fn _merge_map(map_target: &mut Map<String, Value>, map_source: Map<String, Value>) {
     for (k, v) in map_source.iter() {
         map_target.insert(k.to_string(), v.clone());
     }
@@ -61,6 +61,9 @@ pub fn parse(map: Map<String, Value>) -> Value {
         if let Ok(num) = v.parse::<u64>() {
             json_map.insert(k.clone(), Value::Number(serde_json::Number::from(num)));
         }
+        else if let Ok(num) = v.parse::<f64>() {
+            json_map.insert(k.clone(), Value::Number(serde_json::Number::from_f64(num).unwrap()));
+        }
         else {
             json_map.insert(k.clone(), Value::String(v.clone()));
         }
@@ -82,24 +85,21 @@ fn _parse_from_cmd() -> (String, Vec<String>, Vec<String>) {
     let cmd_args: Vec<String> = env::args().collect();
     let cmd_arg_cnt = cmd_args.len();
     let mut file_name = "";
-    let mut offset = 1;
-
-    if cmd_arg_cnt % 2 == 0 {
-        if let Some(arg) = cmd_args.get(1) {
-            file_name = arg;
-        }
-        offset = 2;
-    }
     
     let mut vec_cmd_k: Vec<String> = Vec::new();
     let mut vec_cmd_v: Vec<String> = Vec::new();
-    for cmd_idx in offset..cmd_arg_cnt {
+    for cmd_idx in 1..cmd_arg_cnt {
         if let Some(cmd) = cmd_args.get(cmd_idx) {
-            let cmds: Vec<_> = cmd.split('=').collect();
-            if let Some(k) = cmds.get(0) {
-                if let Some(v) = cmds.get(1) {
-                    vec_cmd_k.push(String::from(*k));
-                    vec_cmd_v.push(String::from(*v));
+            let k_v: Vec<_> = cmd.split('=').collect();
+            if let Some(k) = k_v.get(0) {
+                if let Some(v) = k_v.get(1) {
+                    if *k == "json_file" {
+                        file_name = *v;
+                    }
+                    else {
+                        vec_cmd_k.push(String::from(*k));
+                        vec_cmd_v.push(String::from(*v));
+                    }
                 }
             }
         }
@@ -114,4 +114,26 @@ fn _json_value_update(v1: &mut Value, v2: Value) {
             *v = value.clone();
         }
     }
+}
+
+/// Get the real value from Value given the key name as f64
+pub fn get_from_parser_f64(parser: &Value, key: &str) -> f64 {
+    parser.get(key).expect(format!("Should have config for {}", key).as_str())
+    .as_f64().expect(format!("Should have config for {} as float", key).as_str()) as f64
+}
+
+/// Get the real value from Value given the key name as u64
+pub fn get_from_parser_u64(parser: &Value, key: &str) -> u64 {
+    parser.get(key).expect(format!("Should have config for {}", key).as_str())
+    .as_u64().expect(format!("Should have config for {} as float", key).as_str()) as u64
+}
+
+/// Get the real value from Value given the key name as usize
+pub fn get_from_parser_usize(parser: &Value, key: &str) -> usize {
+    get_from_parser_u64(&parser, &key) as usize
+}
+
+/// Get the real value from Value given the key name as u8
+pub fn get_from_parser_u8(parser: &Value, key: &str) -> u8 {
+    get_from_parser_u64(&parser, &key) as u8
 }

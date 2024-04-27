@@ -2,7 +2,8 @@
 
 use std::{thread, time};
 use serde_json::{Value, Map, Number};
-use minifb::{Window, WindowOptions, Scale, Key};
+use minifb::{Window, WindowOptions, Scale, ScaleMode, Key};
+use crate::parser;
 
 /// Any customized color type should implement this trait
 pub trait Color {
@@ -10,7 +11,7 @@ pub trait Color {
     fn to_u32(&self) -> u32;
 }
 
-/// RBGA color
+/// RGBA color
 pub struct RGBAColor(u8, u8, u8, u8); // r, g, b, a
 impl RGBAColor {
     pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
@@ -49,12 +50,9 @@ pub struct Canvas {
 impl Canvas {
     /// Construct a canvas from json configs
     pub fn new_by_parser(parser: &Value) -> Self {
-        let width = parser.get("width").expect("Should have config for width")
-            .as_u64().expect("Should have config for width as unsigned") as usize;
-        let height = parser.get("height").expect("Should have config for width")
-            .as_u64().expect("Should have config for width as unsigned") as usize;
-        let tick_dt = parser.get("tick_dt").expect("Should have config for width")
-            .as_u64().expect("Should have config for width as unsigned") as u64;
+        let width = parser::get_from_parser_usize(parser, "width");
+        let height = parser::get_from_parser_usize(parser, "height");
+        let tick_dt = parser::get_from_parser_u64(parser, "tick_dt");
         Canvas::new(width, height, tick_dt)
     }
 
@@ -67,7 +65,8 @@ impl Canvas {
             height,
             WindowOptions {
                 resize: true,
-                scale: Scale::X1,
+                scale: Scale::X2,
+                scale_mode: ScaleMode::AspectRatioStretch,
                 ..WindowOptions::default()
             },
         ).unwrap_or_else(|e| {

@@ -3,7 +3,7 @@ use fluid_sim::utils::type_of;
 use serde_json::{Value, Map, Number};
 
 // run with 
-// cargo run --bin parser_main -- configs/debug.json --width 350 --height 300 --tick_dt 30
+// cargo run --bin parser_main -- width=350 height=300 tick_dt=30
 fn main() {
     let mut m = Map::new();
     m.insert(String::from("width"), Value::Number(Number::from(480_usize)));

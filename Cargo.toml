@@ -2,13 +2,13 @@
 name = "fluid_sim"
 version = "0.1.0"
 edition = "2021"
-default-run = "main"
+default-run = "sim_main"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
-name = "main"
-path = "src/main.rs"
+name = "sim_main"
+path = "src/bin/sim_main.rs"
 
 [dependencies]
 minifb = "0.16.0"
