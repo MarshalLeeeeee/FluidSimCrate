@@ -33,7 +33,7 @@ pub struct SingleSmokeGridScene {
     vf_vx: nd::Array2::<f64>,
     /// velocity of axis y, staggered grid, vector field
     vf_vy: nd::Array2::<f64>,
-    // pressure solver
+    /// pressure solver
     pressure_solver: laplacian_solver::LaplacianSolver,
 }
 impl SingleSmokeGridScene {
