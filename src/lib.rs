@@ -4,3 +4,4 @@ pub mod utils;
 pub mod canvas;
 pub mod parser;
 pub mod boundary;
+pub mod laplacian_solver;

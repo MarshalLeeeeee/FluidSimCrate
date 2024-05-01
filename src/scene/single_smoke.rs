@@ -3,12 +3,11 @@
 /// The scene has rigid boundary without any other abstacles
 use ndarray as nd;
 use serde_json::{Value, Map, Number};
-use sprs::{CsMat, CsVec, TriMat};
-use sprs_ldl::*;
 use crate::canvas;
 use crate::grid::*;
 use crate::boundary;
 use crate::parser;
+use crate::laplacian_solver;
 
 /// Smoke simulation performed with Euler method
 ///
@@ -34,8 +33,29 @@ pub struct SingleSmokeGridScene {
     vf_vx: nd::Array2::<f64>,
     /// velocity of axis y, staggered grid, vector field
     vf_vy: nd::Array2::<f64>,
+    // pressure solver
+    pressure_solver: laplacian_solver::LaplacianSolver,
 }
 impl SingleSmokeGridScene {
+    
+    /// Get the config table
+    pub fn get_config_map() -> Map<String, Value> {
+        let mut m = Map::new();
+        m.insert(String::from("dt"), Value::Number(Number::from_f64(0.5_f64).unwrap()));
+        m.insert(String::from("ds"), Value::Number(Number::from_f64(1.0_f64).unwrap()));
+        m.insert(String::from("gx"), Value::Number(Number::from_f64(0_f64).unwrap()));
+        m.insert(String::from("gy"), Value::Number(Number::from_f64(9.8_f64).unwrap()));
+        m.insert(String::from("rho_air"), Value::Number(Number::from_f64(1_f64).unwrap()));
+        m.insert(String::from("rho_smoke"), Value::Number(Number::from_f64(0.5_f64).unwrap()));
+        m.insert(String::from("c_air_r"), Value::Number(Number::from(255_u8)));
+        m.insert(String::from("c_air_g"), Value::Number(Number::from(255_u8)));
+        m.insert(String::from("c_air_b"), Value::Number(Number::from(255_u8)));
+        m.insert(String::from("c_smoke_r"), Value::Number(Number::from(255_u8)));
+        m.insert(String::from("c_smoke_g"), Value::Number(Number::from(0_u8)));
+        m.insert(String::from("c_smoke_b"), Value::Number(Number::from(0_u8)));
+        m
+    }
+
     /// Create instance from parser
     pub fn new_by_parser(parser: &Value) -> Self {
         let dt = parser::get_from_parser_f64(parser, "dt");
@@ -66,25 +86,8 @@ impl SingleSmokeGridScene {
             }),
             vf_vx: nd::Array2::<f64>::from_elem((w+1, h), 0_f64),
             vf_vy: nd::Array2::<f64>::from_elem((w, h+1), 0_f64),
+            pressure_solver: laplacian_solver::LaplacianSolver::new(w, h),
         }
-    }
-    
-    /// Get the config table
-    pub fn get_config_map() -> Map<String, Value> {
-        let mut m = Map::new();
-        m.insert(String::from("dt"), Value::Number(Number::from_f64(0.5_f64).unwrap()));
-        m.insert(String::from("ds"), Value::Number(Number::from_f64(1.0_f64).unwrap()));
-        m.insert(String::from("gx"), Value::Number(Number::from_f64(0_f64).unwrap()));
-        m.insert(String::from("gy"), Value::Number(Number::from_f64(9.8_f64).unwrap()));
-        m.insert(String::from("rho_air"), Value::Number(Number::from_f64(1_f64).unwrap()));
-        m.insert(String::from("rho_smoke"), Value::Number(Number::from_f64(0.5_f64).unwrap()));
-        m.insert(String::from("c_air_r"), Value::Number(Number::from(255_u8)));
-        m.insert(String::from("c_air_g"), Value::Number(Number::from(255_u8)));
-        m.insert(String::from("c_air_b"), Value::Number(Number::from(255_u8)));
-        m.insert(String::from("c_smoke_r"), Value::Number(Number::from(255_u8)));
-        m.insert(String::from("c_smoke_g"), Value::Number(Number::from(0_u8)));
-        m.insert(String::from("c_smoke_b"), Value::Number(Number::from(0_u8)));
-        m
     }
 
     fn _solve_rho(&self) -> nd::Array2::<f64> {
@@ -135,44 +138,12 @@ impl SingleSmokeGridScene {
     fn _pressure_projection(&mut self, rho: &nd::Array2::<f64>) {
         let (w, h) = rho.dim();
         let sz = w * h;
-    
+
+        // pressure solver
         let divergence = self._solve_velocity_divergence();
-        let mut pa = TriMat::<f32>::new((sz, sz));
-        let mut pbi = Vec::with_capacity(sz);
-        let mut pbv: Vec<f32> = Vec::with_capacity(sz);
-        for i in 0..w {
-            for j in 0..h {
-                let mut cnt = 0;
-                if i > 0 {
-                    pa.add_triplet(i*h+j, (i-1)*h+j, 1_f32);
-                    cnt += 1;
-                }
-                if i < w-1 {
-                    pa.add_triplet(i*h+j, (i+1)*h+j, 1_f32);
-                    cnt += 1;
-                }
-                if j > 0 {
-                    pa.add_triplet(i*h+j, i*h+j-1, 1_f32);
-                    cnt += 1;
-                }
-                if j < h-1 {
-                    pa.add_triplet(i*h+j, i*h+j+1, 1_f32);
-                    cnt += 1;
-                }
-                pa.add_triplet(i*h+j, i*h+j, -cnt as f32);
-    
-                pbi.push(i*h+j);
-                pbv.push((divergence[[i, j]] * self.ds * self.ds) as f32);
-            }
-        }
-        let pa: CsMat<_> = pa.to_csr();
-        let pb = CsVec::new(sz, pbi, pbv);
-        let ldl = Ldl::default();
-        let system = ldl.numeric(pa.view()).unwrap();
-        let p = system.solve(pb.to_dense());
-        let p = nd::Array2::<f64>::from_shape_fn((w, h), |(i,j)|{
-            p[i*h+j] as f64
-        });
+        let b = divergence * self.ds * self.ds;
+        let b = b.into_shape(sz).unwrap();
+        let p = self.pressure_solver.solve(b).into_shape((w, h)).unwrap();
     
         // pressure projection
         let px = to_staggered_x_grid(&p, Box::new(boundary::NeumannBoundary));
