@@ -1,7 +1,6 @@
 use fluid_sim::parser;
 use fluid_sim::canvas;
 use fluid_sim::scene;
-use fluid_sim::scene::Scene;
 
 fn main() {
     let raw_parser_maps = vec!(

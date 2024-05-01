@@ -8,12 +8,6 @@ use crate::grid::*;
 use crate::boundary;
 use crate::parser;
 
-pub trait Scene {
-    fn new_by_parser(parser: &Value) -> Self;
-    fn get_config_map() -> Map<String, Value>;
-    fn sim(&mut self);
-}
-
 /// TODO: use sample
 pub struct SingleSmokeGridScene {
     /// discrete of time
@@ -39,16 +33,55 @@ pub struct SingleSmokeGridScene {
 }
 impl SingleSmokeGridScene {
 
-    pub fn visualize_density(&self) -> Vec<canvas::RGBAColor> {
-        let (w, h) = self.sf_d.dim();
-        let mut buffer = Vec::with_capacity(w * h);
-        for j in 0..h {
-            for i in 0..w {
-                buffer.push(canvas::RGBAColor::mix(&self.c_smoke, &self.c_air, self.sf_d[[i, j]]));
-            }
+    /// Create instance from parser
+    pub fn new_by_parser(parser: &Value) -> Self {
+        let dt = parser::get_from_parser_f64(parser, "dt");
+        let ds = parser::get_from_parser_f64(parser, "ds");
+        let gx = parser::get_from_parser_f64(parser, "gx");
+        let gy = parser::get_from_parser_f64(parser, "gy");
+        let rho_air = parser::get_from_parser_f64(parser, "rho_air");
+        let rho_smoke = parser::get_from_parser_f64(parser, "rho_smoke");
+        let c_air_r = parser::get_from_parser_u8(parser, "c_air_r");
+        let c_air_g = parser::get_from_parser_u8(parser, "c_air_g");
+        let c_air_b = parser::get_from_parser_u8(parser, "c_air_b");
+        let c_smoke_r = parser::get_from_parser_u8(parser, "c_smoke_r");
+        let c_smoke_g = parser::get_from_parser_u8(parser, "c_smoke_g");
+        let c_smoke_b = parser::get_from_parser_u8(parser, "c_smoke_b");
+        let w = parser::get_from_parser_usize(parser, "width");
+        let h = parser::get_from_parser_usize(parser, "height");
+        Self {
+            dt: dt,
+            ds: ds,
+            g: nd::Array1::<f64>::from_vec(vec![gx, gy]),
+            rho_air: rho_air,
+            rho_smoke: rho_smoke,
+            c_air: canvas::RGBAColor::new(c_air_r, c_air_g, c_air_b, 255_u8),
+            c_smoke: canvas::RGBAColor::new(c_smoke_r, c_smoke_g, c_smoke_b, 255_u8),
+            sf_d: nd::Array2::<f64>::from_shape_fn((w, h), |(i, j)|{
+                if 16 <= i && i <= 48 && 1 <= j && j <= 32 { 1_f64 }
+                else { 0_f64 }
+            }),
+            vf_vx: nd::Array2::<f64>::from_elem((w+1, h), 0_f64),
+            vf_vy: nd::Array2::<f64>::from_elem((w, h+1), 0_f64),
         }
-        buffer.reverse();
-        buffer
+    }
+    
+    /// Get the config table
+    pub fn get_config_map() -> Map<String, Value> {
+        let mut m = Map::new();
+        m.insert(String::from("dt"), Value::Number(Number::from_f64(0.5_f64).unwrap()));
+        m.insert(String::from("ds"), Value::Number(Number::from_f64(1.0_f64).unwrap()));
+        m.insert(String::from("gx"), Value::Number(Number::from_f64(0_f64).unwrap()));
+        m.insert(String::from("gy"), Value::Number(Number::from_f64(9.8_f64).unwrap()));
+        m.insert(String::from("rho_air"), Value::Number(Number::from_f64(1_f64).unwrap()));
+        m.insert(String::from("rho_smoke"), Value::Number(Number::from_f64(0.5_f64).unwrap()));
+        m.insert(String::from("c_air_r"), Value::Number(Number::from(255_u8)));
+        m.insert(String::from("c_air_g"), Value::Number(Number::from(255_u8)));
+        m.insert(String::from("c_air_b"), Value::Number(Number::from(255_u8)));
+        m.insert(String::from("c_smoke_r"), Value::Number(Number::from(255_u8)));
+        m.insert(String::from("c_smoke_g"), Value::Number(Number::from(0_u8)));
+        m.insert(String::from("c_smoke_b"), Value::Number(Number::from(0_u8)));
+        m
     }
 
     fn _solve_rho(&self) -> nd::Array2::<f64> {
@@ -159,59 +192,9 @@ impl SingleSmokeGridScene {
 
         self.sf_d.assign(&sample_with_offset(&self.sf_d, dx, dy));
     }
-}
-impl Scene for SingleSmokeGridScene {
-    fn new_by_parser(parser: &Value) -> Self {
-        let dt = parser::get_from_parser_f64(parser, "dt");
-        let ds = parser::get_from_parser_f64(parser, "ds");
-        let gx = parser::get_from_parser_f64(parser, "gx");
-        let gy = parser::get_from_parser_f64(parser, "gy");
-        let rho_air = parser::get_from_parser_f64(parser, "rho_air");
-        let rho_smoke = parser::get_from_parser_f64(parser, "rho_smoke");
-        let c_air_r = parser::get_from_parser_u8(parser, "c_air_r");
-        let c_air_g = parser::get_from_parser_u8(parser, "c_air_g");
-        let c_air_b = parser::get_from_parser_u8(parser, "c_air_b");
-        let c_smoke_r = parser::get_from_parser_u8(parser, "c_smoke_r");
-        let c_smoke_g = parser::get_from_parser_u8(parser, "c_smoke_g");
-        let c_smoke_b = parser::get_from_parser_u8(parser, "c_smoke_b");
-        let w = parser::get_from_parser_usize(parser, "width");
-        let h = parser::get_from_parser_usize(parser, "height");
-        Self {
-            dt: dt,
-            ds: ds,
-            g: nd::Array1::<f64>::from_vec(vec![gx, gy]),
-            rho_air: rho_air,
-            rho_smoke: rho_smoke,
-            c_air: canvas::RGBAColor::new(c_air_r, c_air_g, c_air_b, 255_u8),
-            c_smoke: canvas::RGBAColor::new(c_smoke_r, c_smoke_g, c_smoke_b, 255_u8),
-            sf_d: nd::Array2::<f64>::from_shape_fn((w, h), |(i, j)|{
-                if 16 <= i && i <= 48 && 1 <= j && j <= 32 { 1_f64 }
-                else { 0_f64 }
-            }),
-            vf_vx: nd::Array2::<f64>::from_elem((w+1, h), 0_f64),
-            vf_vy: nd::Array2::<f64>::from_elem((w, h+1), 0_f64),
-        }
-    }
 
-    /// Get the config table
-    fn get_config_map() -> Map<String, Value> {
-        let mut m = Map::new();
-        m.insert(String::from("dt"), Value::Number(Number::from_f64(0.5_f64).unwrap()));
-        m.insert(String::from("ds"), Value::Number(Number::from_f64(1.0_f64).unwrap()));
-        m.insert(String::from("gx"), Value::Number(Number::from_f64(0_f64).unwrap()));
-        m.insert(String::from("gy"), Value::Number(Number::from_f64(9.8_f64).unwrap()));
-        m.insert(String::from("rho_air"), Value::Number(Number::from_f64(1_f64).unwrap()));
-        m.insert(String::from("rho_smoke"), Value::Number(Number::from_f64(0.5_f64).unwrap()));
-        m.insert(String::from("c_air_r"), Value::Number(Number::from(255_u8)));
-        m.insert(String::from("c_air_g"), Value::Number(Number::from(255_u8)));
-        m.insert(String::from("c_air_b"), Value::Number(Number::from(255_u8)));
-        m.insert(String::from("c_smoke_r"), Value::Number(Number::from(255_u8)));
-        m.insert(String::from("c_smoke_g"), Value::Number(Number::from(0_u8)));
-        m.insert(String::from("c_smoke_b"), Value::Number(Number::from(0_u8)));
-        m
-    }
-
-    fn sim(&mut self) {
+    /// Do simulation in the temporal step
+    pub fn sim(&mut self) {
         let rho = self._solve_rho();
         let (fx, fy) = self._solve_force(&rho);
         self._velocity_advection(fx, fy);
@@ -219,5 +202,18 @@ impl Scene for SingleSmokeGridScene {
         self._pressure_projection(&rho);
         self._velocity_boundary_adjust();
         self._density_advection();
+    }
+
+    /// Visualization
+    pub fn visualize_density(&self) -> Vec<canvas::RGBAColor> {
+        let (w, h) = self.sf_d.dim();
+        let mut buffer = Vec::with_capacity(w * h);
+        for j in 0..h {
+            for i in 0..w {
+                buffer.push(canvas::RGBAColor::mix(&self.c_smoke, &self.c_air, self.sf_d[[i, j]]));
+            }
+        }
+        buffer.reverse();
+        buffer
     }
 }
