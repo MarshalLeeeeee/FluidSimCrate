@@ -9,7 +9,7 @@ use crate::parser;
 use crate::boundary;
 use crate::laplacian_solver;
 
-/// Smoke simulation performed with Euler method
+/// Smoke simulation performed with Euler method, using symplectic Euler integration
 ///
 /// Examples can be found in ```src/examples/```
 pub struct SingleSmokeGridScene {
@@ -104,18 +104,10 @@ impl SingleSmokeGridScene {
         (fx, fy)
     }
     
-    fn _velocity_advection(&mut self, force_x: nd::Array2::<f64>, force_y: nd::Array2::<f64>) {
-        let vx_g = staggered_x_grid_gradient_as_staggered_x(&self.vf_vx, self.ds);
-        let vx_pre = self.vf_vx.clone() + force_x * self.dt - vx_g * self.dt;
-        let vx_pre_g = staggered_x_grid_gradient_as_staggered_x(&vx_pre, self.ds);
-        let vx_new = (self.vf_vx.clone() + vx_pre) * 0.5 - vx_pre_g * 0.5 * self.dt;
-        self.vf_vx.assign(&vx_new);
-        
-        let vy_g = staggered_y_grid_gradient_as_staggered_y(&self.vf_vy, self.ds);
-        let vy_pre = self.vf_vy.clone() + force_y * self.dt - vy_g * self.dt;
-        let vy_pre_g = staggered_y_grid_gradient_as_staggered_y(&vy_pre, self.ds);
-        let vy_new = (self.vf_vy.clone() + vy_pre) * 0.5 - vy_pre_g * 0.5 * self.dt;
-        self.vf_vy.assign(&vy_new);
+    fn _apply_force(&mut self, force_x: nd::Array2::<f64>, force_y: nd::Array2::<f64>) {
+        self.vf_vx = self.vf_vx.clone() + force_x * self.dt;
+        self.vf_vy = self.vf_vy.clone() + force_y * self.dt;
+        self._velocity_boundary_adjust();
     }
     
     fn _velocity_boundary_adjust(&mut self) {
@@ -153,6 +145,22 @@ impl SingleSmokeGridScene {
         let py = to_staggered_y_grid(&p, Box::new(boundary::NeumannBoundary));
         let pyg = staggered_y_grid_gradient_as_staggered_y(&py, self.ds);
         self.vf_vy = self.vf_vy.clone() - pyg;
+
+        self._velocity_boundary_adjust();
+    }
+
+    fn _velocity_advection(&mut self) {
+        let (w, h) = self.sf_d.dim();
+    
+        let xs = nd::Array2::<f64>::from_shape_fn((w+1, h), |(i, _j)|{ i as f64 }) - self.vf_vx.clone() * self.dt;
+        let ys = nd::Array2::<f64>::from_shape_fn((w+1, h), |(_i, j)|{ j as f64 });
+        self.vf_vx.assign(&sample_with_spatial_index(&self.vf_vx, xs, ys));
+    
+        let xs = nd::Array2::<f64>::from_shape_fn((w, h+1), |(i, _j)|{ i as f64 });
+        let ys = nd::Array2::<f64>::from_shape_fn((w, h+1), |(_i, j)|{ j as f64 }) - self.vf_vy.clone() * self.dt;
+        self.vf_vy.assign(&sample_with_spatial_index(&self.vf_vy, xs, ys));
+
+        self._velocity_boundary_adjust();
     }
     
     fn _density_advection(&mut self) {
@@ -173,10 +181,9 @@ impl SingleSmokeGridScene {
     pub fn sim(&mut self) {
         let rho = self._solve_rho();
         let (fx, fy) = self._solve_force(&rho);
-        self._velocity_advection(fx, fy);
-        self._velocity_boundary_adjust();
+        self._apply_force(fx, fy);
         self._pressure_projection(&rho);
-        self._velocity_boundary_adjust();
+        self._velocity_advection();
         self._density_advection();
     }
 
