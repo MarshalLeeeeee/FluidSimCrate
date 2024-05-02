@@ -7,7 +7,6 @@ use crate::canvas;
 use crate::grid::*;
 use crate::parser;
 use crate::boundary;
-use crate::integration;
 use crate::laplacian_solver;
 
 /// Smoke simulation performed with Euler method
@@ -161,13 +160,11 @@ impl SingleSmokeGridScene {
         
         let (vx_0, vx_1) = split_staggered_x_grid(&self.vf_vx);
         let vx_mid = (vx_0 + vx_1) * 0.5_f64;
-        let xs = nd::Array2::<f64>::from_shape_fn((w, h), |(i, _j)|{ i as f64 });
-        let xs = integration::integrate(Box::new(integration::ForwardEuler), &xs, &vx_mid, -self.dt);
+        let xs = nd::Array2::<f64>::from_shape_fn((w, h), |(i, _j)|{ i as f64 }) - vx_mid * self.dt;
         
         let (vy_0, vy_1) = split_staggered_y_grid(&self.vf_vy);
         let vy_mid = (vy_0 + vy_1) * 0.5_f64;
-        let ys = nd::Array2::<f64>::from_shape_fn((w, h), |(_i, j)|{ j as f64 });
-        let ys = integration::integrate(Box::new(integration::ForwardEuler), &ys, &vy_mid, -self.dt);
+        let ys = nd::Array2::<f64>::from_shape_fn((w, h), |(_i, j)|{ j as f64 }) - vy_mid * self.dt;
 
         self.sf_d.assign(&sample_with_spatial_index(&self.sf_d, xs, ys));
     }

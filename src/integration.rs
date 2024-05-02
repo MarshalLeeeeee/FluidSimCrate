@@ -1,5 +1,6 @@
 /// Module for integration
 use ndarray as nd;
+use crate::grid::sample_with_spatial_index;
 
 pub trait Integrate {
 
@@ -24,6 +25,13 @@ pub trait Integrate {
 
 pub struct ForwardEuler;
 impl Integrate for ForwardEuler {
+    fn get_integration_step(&self, _d: &nd::Array2::<f64>, dd: &nd::Array2::<f64>, step: f64) -> nd::Array2::<f64> {
+        dd * step
+    }
+}
+
+pub struct RK2;
+impl Integrate for RK2 {
     fn get_integration_step(&self, _d: &nd::Array2::<f64>, dd: &nd::Array2::<f64>, step: f64) -> nd::Array2::<f64> {
         dd * step
     }
