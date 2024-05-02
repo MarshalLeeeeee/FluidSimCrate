@@ -29,12 +29,22 @@ pub struct SingleSmokeGridScene {
     c_smoke: canvas::RGBAColor,
     /// portion of density of smoke, range from [0, 1], scalar field
     sf_d: nd::Array2::<f64>,
+    /// initial smoke pos x min
+    init_d_x_min: usize,
+    /// initial smoke pos x max
+    init_d_x_max: usize,
+    /// initial smoke pos y min
+    init_d_y_min: usize,
+    /// initial smoke pos y max
+    init_d_y_max: usize,
     /// velocity of axis x, staggered grid, vector field
     vf_vx: nd::Array2::<f64>,
     /// velocity of axis y, staggered grid, vector field
     vf_vy: nd::Array2::<f64>,
     /// pressure solver
     pressure_solver: laplacian_solver::LaplacianSolver,
+    /// if has infinity smoke from source
+    is_infinite_smoke: bool,
 }
 impl SingleSmokeGridScene {
     
@@ -53,6 +63,11 @@ impl SingleSmokeGridScene {
         m.insert(String::from("c_smoke_r"), Value::Number(Number::from(255_u8)));
         m.insert(String::from("c_smoke_g"), Value::Number(Number::from(0_u8)));
         m.insert(String::from("c_smoke_b"), Value::Number(Number::from(0_u8)));
+        m.insert(String::from("init_d_x_min"), Value::Number(Number::from(16_usize)));
+        m.insert(String::from("init_d_x_max"), Value::Number(Number::from(48_usize)));
+        m.insert(String::from("init_d_y_min"), Value::Number(Number::from(2_usize)));
+        m.insert(String::from("init_d_y_max"), Value::Number(Number::from(32_usize)));
+        m.insert(String::from("is_infinite_smoke"), Value::Number(Number::from(0_u8)));
         m
     }
 
@@ -72,6 +87,11 @@ impl SingleSmokeGridScene {
         let c_smoke_b = parser::get_from_parser_u8(parser, "c_smoke_b");
         let w = parser::get_from_parser_usize(parser, "width");
         let h = parser::get_from_parser_usize(parser, "height");
+        let init_d_x_min = parser::get_from_parser_usize(parser, "init_d_x_min");
+        let init_d_x_max = parser::get_from_parser_usize(parser, "init_d_x_max");
+        let init_d_y_min = parser::get_from_parser_usize(parser, "init_d_y_min");
+        let init_d_y_max = parser::get_from_parser_usize(parser, "init_d_y_max");
+        let is_infinite_smoke = parser::get_from_parser_u8(parser, "is_infinite_smoke");
         Self {
             dt: dt,
             ds: ds,
@@ -81,12 +101,17 @@ impl SingleSmokeGridScene {
             c_air: canvas::RGBAColor::new(c_air_r, c_air_g, c_air_b, 255_u8),
             c_smoke: canvas::RGBAColor::new(c_smoke_r, c_smoke_g, c_smoke_b, 255_u8),
             sf_d: nd::Array2::<f64>::from_shape_fn((w, h), |(i, j)|{
-                if 16 <= i && i <= 48 && 1 <= j && j <= 32 { 1_f64 }
+                if init_d_x_min <= i && i <= init_d_x_max && init_d_y_min <= j && j <= init_d_y_max { 1_f64 }
                 else { 0_f64 }
             }),
+            init_d_x_min: init_d_x_min,
+            init_d_x_max: init_d_x_max,
+            init_d_y_min: init_d_y_min,
+            init_d_y_max: init_d_y_max,
             vf_vx: nd::Array2::<f64>::from_elem((w+1, h), 0_f64),
             vf_vy: nd::Array2::<f64>::from_elem((w, h+1), 0_f64),
             pressure_solver: laplacian_solver::LaplacianSolver::new(w, h),
+            is_infinite_smoke: is_infinite_smoke != 0,
         }
     }
 
@@ -174,7 +199,17 @@ impl SingleSmokeGridScene {
         let vy_mid = (vy_0 + vy_1) * 0.5_f64;
         let ys = nd::Array2::<f64>::from_shape_fn((w, h), |(_i, j)|{ j as f64 }) - vy_mid * self.dt;
 
-        self.sf_d.assign(&sample_with_spatial_index(&self.sf_d, xs, ys));
+        self.sf_d = sample_with_spatial_index(&self.sf_d, xs, ys);
+
+        if self.is_infinite_smoke {
+            let sf_d_source = nd::Array2::<f64>::from_shape_fn((w, h), |(i, j)|{
+                if self.init_d_x_min <= i && i <= self.init_d_x_max && self.init_d_y_min <= j && j <= self.init_d_y_max { 1_f64 }
+                else { 0_f64 }
+            });
+            self.sf_d.zip_mut_with(&sf_d_source, |a, b| {
+                *a = a.max(*b);
+            });
+        }
     }
 
     /// Do simulation in the temporal step
