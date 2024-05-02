@@ -30,13 +30,6 @@ impl Integrate for ForwardEuler {
     }
 }
 
-pub struct RK2;
-impl Integrate for RK2 {
-    fn get_integration_step(&self, _d: &nd::Array2::<f64>, dd: &nd::Array2::<f64>, step: f64) -> nd::Array2::<f64> {
-        dd * step
-    }
-}
-
 /// Get the incremental part for integration
 ///
 /// Params:
