@@ -118,23 +118,17 @@ impl SingleSmokeGridScene {
         }
     }
 
-    fn _solve_rho(&self) -> nd::Array2::<f64> {
-        self.sf_d.clone() * (self.rho_smoke - self.rho_air) + self.rho_air
-    }
-    
-    fn _solve_force(&self, rho: &nd::Array2::<f64>) -> (nd::Array2::<f64>, nd::Array2::<f64>) {
+    fn _apply_buoyancy(&mut self) {
+        let rho = self.sf_d.clone() * (self.rho_smoke - self.rho_air) + self.rho_air;
+
         let rho_x = to_staggered_x_grid(&rho, Box::new(boundary::NeumannBoundary));
         let fx = (self.rho_air - rho_x.clone()) / rho_x * self.g[0];
         
         let rho_y = to_staggered_y_grid(&rho, Box::new(boundary::NeumannBoundary));
         let fy = (self.rho_air - rho_y.clone()) / rho_y * self.g[1];
     
-        (fx, fy)
-    }
-    
-    fn _apply_force(&mut self, force_x: nd::Array2::<f64>, force_y: nd::Array2::<f64>) {
-        self.vf_vx = self.vf_vx.clone() + force_x * self.dt;
-        self.vf_vy = self.vf_vy.clone() + force_y * self.dt;
+        self.vf_vx = self.vf_vx.clone() + fx * self.dt;
+        self.vf_vy = self.vf_vy.clone() + fy * self.dt;
         self._velocity_boundary_adjust();
     }
     
@@ -155,8 +149,8 @@ impl SingleSmokeGridScene {
         staggered_x_grid_gradient(&self.vf_vx, self.ds) + staggered_y_grid_gradient(&self.vf_vy, self.ds)
     }
     
-    fn _pressure_projection(&mut self, rho: &nd::Array2::<f64>) {
-        let (w, h) = rho.dim();
+    fn _pressure_projection(&mut self) {
+        let (w, h) = self.sf_d.dim();
         let sz = w * h;
 
         // pressure solver
@@ -217,10 +211,8 @@ impl SingleSmokeGridScene {
 
     /// Do simulation in the temporal step
     pub fn sim(&mut self) {
-        let rho = self._solve_rho();
-        let (fx, fy) = self._solve_force(&rho);
-        self._apply_force(fx, fy);
-        self._pressure_projection(&rho);
+        self._apply_buoyancy();
+        self._pressure_projection();
         self._velocity_advection();
         self._density_advection();
     }
