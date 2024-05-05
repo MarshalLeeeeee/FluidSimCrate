@@ -1,9 +1,0 @@
-{
-    "width": 64,
-    "height": 128,
-    "tick_dt": 50,
-    "dt": 0.1,
-    "c_air_r": 255,
-    "c_air_g": 255,
-    "c_air_b": 255
-}

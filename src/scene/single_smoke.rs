@@ -177,12 +177,12 @@ impl SingleSmokeGridScene {
     fn _velocity_advection(&mut self) {
         let (w, h) = self.sf_d.dim();
     
-        let xs = nd::Array2::<f64>::from_shape_fn((w+1, h), |(i, _j)|{ i as f64 }) - self.vf_vx.clone() * self.dt;
+        let xs = nd::Array2::<f64>::from_shape_fn((w+1, h), |(i, _j)|{ i as f64 }) - self.vf_vx.clone() * self.dt / self.ds;
         let ys = nd::Array2::<f64>::from_shape_fn((w+1, h), |(_i, j)|{ j as f64 });
         self.vf_vx.assign(&sample_with_spatial_index(&self.vf_vx, xs, ys));
     
         let xs = nd::Array2::<f64>::from_shape_fn((w, h+1), |(i, _j)|{ i as f64 });
-        let ys = nd::Array2::<f64>::from_shape_fn((w, h+1), |(_i, j)|{ j as f64 }) - self.vf_vy.clone() * self.dt;
+        let ys = nd::Array2::<f64>::from_shape_fn((w, h+1), |(_i, j)|{ j as f64 }) - self.vf_vy.clone() * self.dt / self.ds;
         self.vf_vy.assign(&sample_with_spatial_index(&self.vf_vy, xs, ys));
 
         self._velocity_boundary_adjust();
@@ -193,11 +193,11 @@ impl SingleSmokeGridScene {
         
         let (vx_0, vx_1) = split_staggered_x_grid(&self.vf_vx);
         let vx_mid = (vx_0 + vx_1) * 0.5_f64;
-        let xs = nd::Array2::<f64>::from_shape_fn((w, h), |(i, _j)|{ i as f64 }) - vx_mid * self.dt;
+        let xs = nd::Array2::<f64>::from_shape_fn((w, h), |(i, _j)|{ i as f64 }) - vx_mid * self.dt / self.ds;
         
         let (vy_0, vy_1) = split_staggered_y_grid(&self.vf_vy);
         let vy_mid = (vy_0 + vy_1) * 0.5_f64;
-        let ys = nd::Array2::<f64>::from_shape_fn((w, h), |(_i, j)|{ j as f64 }) - vy_mid * self.dt;
+        let ys = nd::Array2::<f64>::from_shape_fn((w, h), |(_i, j)|{ j as f64 }) - vy_mid * self.dt / self.ds;
 
         self.sf_d = sample_with_spatial_index(&self.sf_d, xs, ys);
 
