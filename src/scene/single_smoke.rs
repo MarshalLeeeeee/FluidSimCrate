@@ -41,6 +41,8 @@ pub struct SingleSmokeGridScene {
     vf_vx: nd::Array2::<f64>,
     /// velocity of axis y, staggered grid, vector field
     vf_vy: nd::Array2::<f64>,
+    /// pressure
+    sf_p: nd::Array2::<f64>,
     /// pressure solver
     pressure_solver: laplacian_solver::LaplacianSolver,
     /// if has infinity smoke from source
@@ -110,6 +112,7 @@ impl SingleSmokeGridScene {
             init_d_y_max: init_d_y_max,
             vf_vx: nd::Array2::<f64>::from_elem((w+1, h), 0_f64),
             vf_vy: nd::Array2::<f64>::from_elem((w, h+1), 0_f64),
+            sf_p: nd::Array2::<f64>::zeros((w, h)),
             pressure_solver: laplacian_solver::LaplacianSolver::new(w, h),
             is_infinite_smoke: is_infinite_smoke != 0,
         }
@@ -160,14 +163,14 @@ impl SingleSmokeGridScene {
         let divergence = self._solve_velocity_divergence();
         let b = divergence * self.ds * self.ds;
         let b = b.into_shape(sz).unwrap();
-        let p = self.pressure_solver.solve(b).into_shape((w, h)).unwrap();
+        self.sf_p = self.pressure_solver.solve(b).into_shape((w, h)).unwrap();
     
         // pressure projection
-        let px = to_staggered_x_grid(&p, Box::new(boundary::NeumannBoundary));
+        let px = to_staggered_x_grid(&self.sf_p, Box::new(boundary::NeumannBoundary));
         let pxg = staggered_x_grid_gradient_as_staggered_x(&px, self.ds);
         self.vf_vx = self.vf_vx.clone() - pxg;
         
-        let py = to_staggered_y_grid(&p, Box::new(boundary::NeumannBoundary));
+        let py = to_staggered_y_grid(&self.sf_p, Box::new(boundary::NeumannBoundary));
         let pyg = staggered_y_grid_gradient_as_staggered_y(&py, self.ds);
         self.vf_vy = self.vf_vy.clone() - pyg;
 
@@ -229,6 +232,25 @@ impl SingleSmokeGridScene {
         for j in 0..h {
             for i in 0..w {
                 buffer.push(canvas::RGBAColor::mix(&self.c_smoke, &self.c_air, self.sf_d[[i, j]]));
+            }
+        }
+        buffer.reverse();
+        buffer
+    }
+
+    /// Visualization of pressure
+    pub fn visualize_pressure(&self) -> Vec<canvas::RGBAColor> {
+        let (w, h) = self.sf_p.dim();
+        let mut buffer = Vec::with_capacity(w * h);
+        let min_p = self.sf_p.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+        let max_p = self.sf_p.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        let avg_p = self.sf_p.sum() / (w as f64) / (h as f64);
+        let nrm_p = if (max_p - avg_p) > (avg_p - min_p) { max_p - avg_p } else { avg_p - min_p };
+        let c_low = canvas::RGBAColor::new(0,0,255,0);
+        let c_high = canvas::RGBAColor::new(255,0,0,0);
+        for j in 0..h {
+            for i in 0..w {
+                buffer.push(canvas::RGBAColor::mix(&c_high, &c_low, ((self.sf_p[[i, j]] - avg_p) / nrm_p + 1_f64) * 0.5));
             }
         }
         buffer.reverse();
