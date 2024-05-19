@@ -6,8 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
-name = "single_smoke_sim"
-path = "src/scene_examples/single_smoke_sim.rs"
+name = "single_smoke_grid_sim"
+path = "src/scene_examples/single_smoke_grid_sim.rs"
+
+[[bin]]
+name = "single_smoke_particle_sim"
+path = "src/scene_examples/single_smoke_particle_sim.rs"
 
 [[bin]]
 name = "canvas_demo"
