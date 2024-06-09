@@ -1,36 +1,163 @@
 /// Module for simple render
 
+use std::ops::{Add, Mul, Div};
 use std::{thread, time};
 use serde_json::{Value, Map, Number};
 use minifb::{Window, WindowOptions, Scale, ScaleMode, Key};
 use crate::parser;
+use crate::render::{self, Shape};
+
+pub trait TempColor {
+    type TypeColor;
+    fn to_c(self) -> Self::TypeColor where Self::TypeColor:Color;
+}
 
 /// Any customized color type should implement this trait
 pub trait Color {
+    type TypeTempColor;
     /// Convert the customized color struct representation to u32
     fn to_u32(&self) -> u32;
+    fn to_tc(&self) -> Self::TypeTempColor where Self::TypeTempColor:TempColor+Add+Mul<u32>+Div<u32>;
+    fn remove_opacity(self) -> Self;
+    fn set_opacity(&mut self, r: f64);
+    fn _do_stack_color(colors: Vec<Box<Self>>) -> Box<Self>;
+    fn stack_colors(colors: Vec<Box<Self>>) -> Option<Box<Self>>;
+    fn stack_colors_with_default(colors: Vec<Box<Self>>, default_color: Box<Self>) -> Box<Self>;
+    fn default() -> Self;
+    fn copy_color(&self) -> Self;
+    fn print_color(&self);
+    fn new(x: u8, y: u8, z: u8) -> Self;
+    fn mix(self, other: Self) -> Self;
 }
 
-/// RGBA color
-pub struct RGBAColor(u8, u8, u8, u8); // r, g, b, a
-impl RGBAColor {
-    pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self(r, g, b, a)
-    }
-    pub fn mix(&self, other: &Self, self_ratio: f64) -> Self {
-        Self(
-            (self.0 as f64 * self_ratio + other.0 as f64 * (1_f64 - self_ratio)).round() as u8,
-            (self.1 as f64 * self_ratio + other.1 as f64 * (1_f64 - self_ratio)).round() as u8,
-            (self.2 as f64 * self_ratio + other.2 as f64 * (1_f64 - self_ratio)).round() as u8,
-            (self.3 as f64 * self_ratio + other.3 as f64 * (1_f64 - self_ratio)).round() as u8,
+/// RGBA color for calculation
+pub struct RGBATempColor(u32, u32, u32, u32);
+impl TempColor for RGBATempColor {
+    type TypeColor = RGBAColor;
+    fn to_c(self) -> Self::TypeColor where Self::TypeColor:Color {
+        RGBAColor::new_with_a(
+            self.0 as u8,
+            self.1 as u8,
+            self.2 as u8,
+            self.3 as u8,
         )
     }
 }
+impl Add for RGBATempColor {
+    type Output = RGBATempColor;
+    fn add(self, rhs: RGBATempColor) -> RGBATempColor {
+        RGBATempColor(
+            self.0 + rhs.0,
+            self.1 + rhs.1,
+            self.2 + rhs.2,
+            self.3 + rhs.3,
+        )
+    }
+}
+impl Mul<u32> for RGBATempColor {
+    type Output = RGBATempColor;
+    fn mul(self, rhs: u32) -> RGBATempColor {
+        RGBATempColor(
+            self.0 * rhs,
+            self.1 * rhs,
+            self.2 * rhs,
+            self.3 * rhs,
+        )
+    }
+}
+impl Div<u32> for RGBATempColor {
+    type Output = RGBATempColor;
+    fn div(self, rhs: u32) -> RGBATempColor {
+        RGBATempColor(
+            self.0 / rhs,
+            self.1 / rhs,
+            self.2 / rhs,
+            self.3 / rhs,
+        )
+    }
+}
+
+/// RGBA color
+#[derive(std::clone::Clone)]
+pub struct RGBAColor(u8, u8, u8, u8); // r, g, b, a
 impl Color for RGBAColor {
+    type TypeTempColor = RGBATempColor;
     fn to_u32(&self) -> u32 {
         ((self.3 as u32) << 24) | ((self.0 as u32) << 16) | ((self.1 as u32) << 8) | (self.2 as u32)
     }
-    
+    fn remove_opacity(self) -> Self {
+        Self(
+            self.0,
+            self.1,
+            self.2,
+            255,
+        )
+    }
+    fn set_opacity(&mut self, r: f64) {
+        let a = self.3 as f64;
+        let a = a * r;
+        self.3 = a as u8;
+    }
+    fn to_tc(&self) -> Self::TypeTempColor where Self::TypeTempColor:TempColor+Add+Mul<u32>+Div<u32> {
+        RGBATempColor(self.0 as u32, self.1 as u32, self.2 as u32, self.3 as u32)
+    }
+    fn _do_stack_color(colors: Vec<Box<Self>>) -> Box<Self> {
+        assert!(!colors.is_empty(), "Colors should not be empty");
+        let mut tc = Self(0, 0, 0, 0).to_tc();
+        let mut a_sum: u32 = 0;
+        for color in colors {
+            let mut tcc = color.to_tc();
+            let a = tcc.3;
+            tcc = tcc * a / 255;
+            tc = tc + tcc;
+            a_sum += a;
+        }
+        tc = tc * 255 / a_sum;
+        Box::new(tc.to_c().remove_opacity())
+    }
+    fn stack_colors(colors: Vec<Box<Self>>) -> Option<Box<Self>> {
+        if colors.is_empty() {
+            None
+        }
+        else {
+            Some(Self::_do_stack_color(colors))
+        }
+    }
+    fn stack_colors_with_default(colors: Vec<Box<Self>>, default_color: Box<Self>) -> Box<Self> {
+        if colors.is_empty() {
+            default_color
+        }
+        else {
+            Self::_do_stack_color(colors)
+        }
+    }
+    fn default() -> Self {
+        Self(0,0,0,255)
+    }
+    fn copy_color(&self) -> Self {
+        Self(
+            self.0,
+            self.1,
+            self.2,
+            self.3,
+        )
+    }
+    fn print_color(&self) {
+        println!("RGBAColor: {} {} {} {}", self.0, self.1, self.2, self.3);
+    }
+    fn new(x: u8, y: u8, z: u8) -> Self {
+        Self(x, y, z, 255)
+    }
+    fn mix(self, other: Self) -> Self {
+        let self_box = Box::new(self);
+        let other_box = Box::new(other);
+        *(Self::_do_stack_color(vec![self_box, other_box]))
+    }
+}
+impl RGBAColor {
+    pub fn new_with_a(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self(r, g, b, a)
+    }
 }
 
 /// The window for simple render of color
@@ -39,25 +166,38 @@ impl Color for RGBAColor {
 /// - width: the width of the window
 /// - height: the height of the window
 /// - tick_dt: the minimal update interval in millis
-pub struct Canvas {
+pub struct Canvas<C: Color + std::clone::Clone> {
+    ratio: usize,
     width: usize,
     height: usize,
     buffer: Vec<u32>,
     window: Window,
     tick_ts: time::SystemTime,
     tick_dt: u64,
+    renderer: render::Renderer<C>,
 }
-impl Canvas {
+impl<C: Color + std::clone::Clone> Canvas<C> {
     /// Construct a canvas from json configs
     pub fn new_by_parser(parser: &Value) -> Self {
-        let width = parser::get_from_parser_usize(parser, "width");
-        let height = parser::get_from_parser_usize(parser, "height");
+        let ratio = parser::get_from_parser_usize(parser, "canvas_ratio");
+        let w = parser::get_from_parser_usize(parser, "scene_width");
+        let h = parser::get_from_parser_usize(parser, "scene_height");
         let tick_dt = parser::get_from_parser_u64(parser, "tick_dt");
-        Canvas::new(width, height, tick_dt)
+        Canvas::new(w, h, tick_dt, ratio)
+    }
+
+    /// Provide default configs for Canvas
+    pub fn get_config_map() -> Map<String, Value> {
+        let mut m = Map::new();
+        m.insert(String::from("canvas_ratio"), Value::Number(Number::from(1_usize)));
+        m.insert(String::from("tick_dt"), Value::Number(Number::from(5_u64)));
+        m
     }
 
     /// Construct a canvas with configs
-    pub fn new (width: usize, height: usize, tick_dt: u64) -> Self {
+    pub fn new (width: usize, height: usize, tick_dt: u64, ratio: usize) -> Self {
+        let width = width * ratio;
+        let height = height * ratio;
         let buffer = vec![0; width*height];
         let window = Window::new(
             "Rust Example - Display Color Data",
@@ -73,12 +213,14 @@ impl Canvas {
             panic!("Create canvas error: {}", e);
         });
         Self {
+            ratio,
             width,
             height,
             buffer,
             window,
             tick_ts: time::SystemTime::now(),
             tick_dt: tick_dt,
+            renderer: render::Renderer::new(width, height, ratio),
         }
     }
 
@@ -100,7 +242,7 @@ impl Canvas {
     /// ...
     /// canvas.refresh(buffer);
     /// ```
-    pub fn refresh<T>(&mut self, buffer: &Vec<T>) where T:Color {
+    pub fn refresh(&mut self, buffer: &Vec<C>) {
         let dt: u64 = std::time::SystemTime::now().duration_since(self.tick_ts).expect("Expect delta time").as_millis() as u64;
         if dt < self.tick_dt {
             thread::sleep(time::Duration::from_millis(self.tick_dt - dt));
@@ -114,6 +256,10 @@ impl Canvas {
         self.tick_ts = std::time::SystemTime::now();
     }
 
+    pub fn draw(&mut self, shapes: &Vec<Box<dyn Shape<C>>>) {
+        self.refresh(&self.renderer.draw(&shapes));
+    }
+
     /// Get the width of the canvas
     pub fn get_width(&self) -> usize {
         self.width
@@ -123,13 +269,5 @@ impl Canvas {
     pub fn get_height(&self) -> usize {
         self.height
     }
-
-    /// Provide default configs for Canvas
-    pub fn get_config_map() -> Map<String, Value> {
-        let mut m = Map::new();
-        m.insert(String::from("width"), Value::Number(Number::from(480_usize)));
-        m.insert(String::from("height"), Value::Number(Number::from(640_usize)));
-        m.insert(String::from("tick_dt"), Value::Number(Number::from(100_u64)));
-        m
-    }
 }
+

@@ -1,6 +1,7 @@
 {
-    "width": 64,
-    "height": 64,
+    "canvas_ratio": 2,
+    "scene_width": 128,
+    "scene_height": 128,
     "tick_dt": 5,
     "gy": 1.0,
     "dt": 0.1,

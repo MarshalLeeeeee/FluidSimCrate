@@ -1,7 +1,7 @@
 {
-    "width": 256,
-    "height": 256,
-    "tick_dt": 5,
+    "canvas_ratio": 2,
+    "scene_width": 128,
+    "scene_height": 128,
     "dt": 0.1,
     "c_air_r": 0,
     "c_air_g": 0,
@@ -11,7 +11,7 @@
     "c_smoke_b": 255,
     "init_d_x_min": 48,
     "init_d_x_max": 64,
-    "init_d_y_min": 48,
-    "init_d_y_max": 64,
+    "init_d_y_min": 40,
+    "init_d_y_max": 50,
     "is_infinite_smoke": 1
 }

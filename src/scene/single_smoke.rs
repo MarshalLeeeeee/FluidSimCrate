@@ -6,13 +6,14 @@ use serde_json::{Value, Map, Number};
 use crate::canvas;
 use crate::grid::*;
 use crate::parser;
+use crate::render;
 use crate::boundary;
 use crate::laplacian_solver;
 
 /// Smoke simulation performed with Euler method, using symplectic Euler integration
 ///
 /// Examples can be found in ```src/examples/```
-pub struct SingleSmokeGridScene {
+pub struct SingleSmokeGridScene<C: canvas::Color + std::clone::Clone> {
     /// discrete of time
     dt: f64,
     /// discrete of space
@@ -24,9 +25,9 @@ pub struct SingleSmokeGridScene {
     /// density of smoke
     rho_smoke: f64,
     /// color of air for visualization
-    c_air: canvas::RGBAColor,
+    c_air: C,
     /// color of smoke for visualization
-    c_smoke: canvas::RGBAColor,
+    c_smoke: C,
     /// portion of density of smoke, range from [0, 1], scalar field
     sf_d: nd::Array2::<f64>,
     /// initial smoke pos x min
@@ -48,7 +49,7 @@ pub struct SingleSmokeGridScene {
     /// if has infinity smoke from source
     is_infinite_smoke: bool,
 }
-impl SingleSmokeGridScene {
+impl<C: canvas::Color + std::clone::Clone + 'static> SingleSmokeGridScene<C> {
     
     /// Get the config table
     pub fn get_config_map() -> Map<String, Value> {
@@ -59,6 +60,8 @@ impl SingleSmokeGridScene {
         m.insert(String::from("gy"), Value::Number(Number::from_f64(9.8_f64).unwrap()));
         m.insert(String::from("rho_air"), Value::Number(Number::from_f64(1_f64).unwrap()));
         m.insert(String::from("rho_smoke"), Value::Number(Number::from_f64(0.5_f64).unwrap()));
+        m.insert(String::from("scene_width"), Value::Number(Number::from(255_u8)));
+        m.insert(String::from("scene_height"), Value::Number(Number::from(255_u8)));
         m.insert(String::from("c_air_r"), Value::Number(Number::from(255_u8)));
         m.insert(String::from("c_air_g"), Value::Number(Number::from(255_u8)));
         m.insert(String::from("c_air_b"), Value::Number(Number::from(255_u8)));
@@ -87,8 +90,8 @@ impl SingleSmokeGridScene {
         let c_smoke_r = parser::get_from_parser_u8(parser, "c_smoke_r");
         let c_smoke_g = parser::get_from_parser_u8(parser, "c_smoke_g");
         let c_smoke_b = parser::get_from_parser_u8(parser, "c_smoke_b");
-        let w = parser::get_from_parser_usize(parser, "width");
-        let h = parser::get_from_parser_usize(parser, "height");
+        let w = parser::get_from_parser_usize(parser, "scene_width");
+        let h = parser::get_from_parser_usize(parser, "scene_height");
         let init_d_x_min = parser::get_from_parser_usize(parser, "init_d_x_min");
         let init_d_x_max = parser::get_from_parser_usize(parser, "init_d_x_max");
         let init_d_y_min = parser::get_from_parser_usize(parser, "init_d_y_min");
@@ -100,8 +103,8 @@ impl SingleSmokeGridScene {
             g: nd::Array1::<f64>::from_vec(vec![gx, gy]),
             rho_air: rho_air,
             rho_smoke: rho_smoke,
-            c_air: canvas::RGBAColor::new(c_air_r, c_air_g, c_air_b, 255_u8),
-            c_smoke: canvas::RGBAColor::new(c_smoke_r, c_smoke_g, c_smoke_b, 255_u8),
+            c_air: C::new(c_air_r, c_air_g, c_air_b),
+            c_smoke: C::new(c_smoke_r, c_smoke_g, c_smoke_b),
             sf_d: nd::Array2::<f64>::from_shape_fn((w, h), |(i, j)|{
                 if init_d_x_min <= i && i <= init_d_x_max && init_d_y_min <= j && j <= init_d_y_max { 1_f64 }
                 else { 0_f64 }
@@ -218,50 +221,40 @@ impl SingleSmokeGridScene {
     }
 
     /// Visualization of smoke density
-    pub fn visualize_density(&self) -> Vec<canvas::RGBAColor> {
+    pub fn visualize_density(&self) -> Vec<Box<dyn render::Shape::<C>>> {
         let (w, h) = self.sf_d.dim();
-        let mut buffer = Vec::with_capacity(w * h);
-        for j in 0..h {
-            for i in 0..w {
-                buffer.push(canvas::RGBAColor::mix(&self.c_smoke, &self.c_air, self.sf_d[[i, j]]));
+        let mut shapes: Vec<Box<dyn render::Shape::<C>>> = Vec::new();
+        for i in 0..w {
+            for j in 0..h {
+                let mut cs = self.c_smoke.clone();
+                cs.set_opacity(self.sf_d[[i, j]]);
+                let mut ca = self.c_air.clone();
+                ca.set_opacity(1.0 - self.sf_d[[i, j]]);
+                shapes.push(Box::new(render::RectShape::<C>::new(
+                    cs.mix(ca),
+                    (w-1-i) as f64 + 0.5,
+                    (h-1-j) as f64 + 0.5,
+                    1.0,
+                    1.0,
+                )));
             }
         }
-        buffer.reverse();
-        buffer
-    }
-
-    /// Visualization of pressure
-    pub fn visualize_pressure(&self) -> Vec<canvas::RGBAColor> {
-        let (w, h) = self.sf_p.dim();
-        let mut buffer = Vec::with_capacity(w * h);
-        let min_p = self.sf_p.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-        let max_p = self.sf_p.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-        let avg_p = self.sf_p.sum() / (w as f64) / (h as f64);
-        let nrm_p = if (max_p - avg_p) > (avg_p - min_p) { max_p - avg_p } else { avg_p - min_p };
-        let c_low = canvas::RGBAColor::new(0,0,255,0);
-        let c_high = canvas::RGBAColor::new(255,0,0,0);
-        for j in 0..h {
-            for i in 0..w {
-                buffer.push(canvas::RGBAColor::mix(&c_high, &c_low, ((self.sf_p[[i, j]] - avg_p) / nrm_p + 1_f64) * 0.5));
-            }
-        }
-        buffer.reverse();
-        buffer
+        shapes
     }
 }
 
 /// Smoke simulation performed with Lagrangian method
 ///
 /// Examples can be found in ```src/examples/```
-pub struct SingleSmokeParticleScene {
+pub struct SingleSmokeParticleScene<C: canvas::Color + std::clone::Clone> {
     /// discrete of time
     dt: f64,
     /// discrete of space
     ds: f64,
     /// color of air for visualization
-    c_air: canvas::RGBAColor,
+    c_air: C,
     /// color of smoke for visualization
-    c_smoke: canvas::RGBAColor,
+    c_smoke: C,
     /// width, index coordinate
     w: usize,
     /// height, index coordinate
@@ -295,7 +288,7 @@ pub struct SingleSmokeParticleScene {
     /// particle spatial index
     p_grid_index: nd::Array2::<Vec<usize>>,
 }
-impl SingleSmokeParticleScene {
+impl<C: canvas::Color + std::clone::Clone> SingleSmokeParticleScene<C> {
      
     /// Get the config table
     pub fn get_config_map() -> Map<String, Value> {
@@ -380,8 +373,8 @@ impl SingleSmokeParticleScene {
         Self {
             dt: dt,
             ds: ds,
-            c_air: canvas::RGBAColor::new(c_air_r, c_air_g, c_air_b, 255_u8),
-            c_smoke: canvas::RGBAColor::new(c_smoke_r, c_smoke_g, c_smoke_b, 255_u8),
+            c_air: C::new(c_air_r, c_air_g, c_air_b),
+            c_smoke: C::new(c_smoke_r, c_smoke_g, c_smoke_b),
             w: w,
             h: h,
             p_cnt_per_cell_dimension: particle_cnt_per_cell,
@@ -597,7 +590,7 @@ impl SingleSmokeParticleScene {
     }
 
     /// Visualization of smoke density
-    pub fn visualize_density(&self) -> Vec<canvas::RGBAColor> {
+    pub fn visualize_density(&self) -> Vec<C> {
         let (w, h) = self.p_grid_index.dim();
         let mut buffer = Vec::with_capacity(w* h);
         for j in 0..h {
@@ -614,7 +607,11 @@ impl SingleSmokeParticleScene {
                 if total_particle_cnt > 0 {
                     smoke_portion = smoke_particle_cnt as f64 / total_particle_cnt as f64;
                 }
-                buffer.push(canvas::RGBAColor::mix(&self.c_smoke, &self.c_air, smoke_portion));
+                let mut cs = self.c_smoke.clone();
+                cs.set_opacity(smoke_portion);
+                let mut ca = self.c_air.clone();
+                ca.set_opacity(1.0 - smoke_portion);
+                buffer.push(cs.mix(ca));
             }
         }
         buffer.reverse();
