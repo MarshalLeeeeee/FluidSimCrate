@@ -1,40 +1,58 @@
+/// Module for rendering utilization
+
 use std::cmp::{min, max};
 use ndarray as nd;
 use crate::canvas;
 
+/// Simple struction holding two data with the same type
 struct Vec2<T>(T, T);
 impl<T> Vec2<T> {
     fn new(x: T, y: T) -> Self {
         Self(x, y)
     }
 }
-
+/// Simple struction holding two number as usize
 type UsizeVec2 = Vec2<usize>;
+/// Simple struction holding two number as f64
 type F64Vec2 = Vec2<f64>;
-impl F64Vec2 {
-    fn ref_mul(&self, rhs: usize) -> F64Vec2 {
-        F64Vec2::new(
-            self.0 * rhs as f64,
-            self.1 * rhs as f64,
-        )
-    }
-}
 
+/// Data structure to locate color with position in grid coordinate
 pub struct Entry<C: canvas::Color> {
+    /// color
     color: C,
-    pos: UsizeVec2, // pos in canvas coordinate
+    /// pos in canvas coordinate
+    pos: UsizeVec2,
 }
 
+/// Any customized shape type should implement this trait so as to be rendered on the canvas
+///
+/// Used to bridge scene visualization with canvas rendering
 pub trait Shape<C: canvas::Color> {
+    /// Rasterize shape to list of entries
+    ///
+    /// Parameter
+    /// - width: canvas width
+    /// - height: canvas height
+    /// - ratio: ratio between canvas and scene
     fn rasterize(&self, width: usize, height: usize, ratio: usize) -> Vec<Entry<C>>;
 }
 
+/// Rectangle shape to be rendered given with
+/// - color: color for rendering
+/// - pos: center of the rectangle in scene coordinate
+/// - size: width and height of the rectangle in scene coordinate
 pub struct RectShape<C: canvas::Color> {
     color: C,
-    pos: F64Vec2, // pos in scene coordinate
-    size: F64Vec2, // size in scene coordinate
+    pos: F64Vec2,
+    size: F64Vec2,
 }
 impl<C: canvas::Color> Shape<C> for RectShape<C> {
+    /// Rasterize rectangle to list of entries
+    ///
+    /// Parameter
+    /// - width: canvas width
+    /// - height: canvas height
+    /// - ratio: ratio between canvas and scene
     fn rasterize(&self, width: usize, height: usize, ratio: usize) -> Vec<Entry<C>> {
         let canvas_pos_x = self.pos.0 * ratio as f64;
         let canvas_pos_y = self.pos.1 * ratio as f64;
@@ -117,6 +135,7 @@ impl<C: canvas::Color> Shape<C> for RectShape<C> {
     }
 }
 impl<C: canvas::Color> RectShape<C> {
+    /// Construct rectangle shape
     pub fn new(c: C, x: f64, y: f64, w: f64, h: f64) -> Self {
         Self {
             color: c,
@@ -126,12 +145,22 @@ impl<C: canvas::Color> RectShape<C> {
     }
 }
 
+/// Circle shape to be rendered given with
+/// - color: color for rendering
+/// - pos: center of the circle in scene coordinate
+/// - radius: radius of the circle in scene coordinate
 pub struct CircleShape<C: canvas::Color> {
     color: C,
     pos: F64Vec2, // pos in scene coordinate
     radius: f64, // radius in scene coordinate
 }
 impl<C: canvas::Color> Shape<C> for CircleShape<C> {
+    /// Rasterize circle to list of entries
+    ///
+    /// Parameter
+    /// - width: canvas width
+    /// - height: canvas height
+    /// - ratio: ratio between canvas and scene
     fn rasterize(&self, width: usize, height: usize, ratio: usize) -> Vec<Entry<C>> {
         let canvas_pos_x = self.pos.0 * ratio as f64;
         let canvas_pos_y = self.pos.1 * ratio as f64;
@@ -139,7 +168,20 @@ impl<C: canvas::Color> Shape<C> for CircleShape<C> {
         Vec::new() // TODO
     }
 }
+impl<C: canvas::Color> CircleShape<C> {
+    /// Construct circle shape
+    pub fn new(c: C, x: f64, y: f64, r: f64) -> Self {
+        Self {
+            color: c,
+            pos: F64Vec2::new(x, y),
+            radius: r,
+        }
+    }
+}
 
+/// Simple renderer to convert shapes to canvas coordinate
+///
+/// Included by canvas::Canvas 
 pub struct Renderer<C: canvas::Color> {
     width: usize, // canvas_width
     height: usize, // canvas height
@@ -147,6 +189,10 @@ pub struct Renderer<C: canvas::Color> {
     bg_color: C,
 }
 impl<C: canvas::Color> Renderer<C> {
+    /// Construct renderer with
+    /// - width: canvas width
+    /// - height: canvas height
+    /// - ratio: ratio between canvas and scene
     pub fn new(width: usize, height: usize, ratio: usize) -> Self {
         Self {
             width,
@@ -156,6 +202,7 @@ impl<C: canvas::Color> Renderer<C> {
         }
     }
 
+    /// Convert list of shapes to canvas buffer
     pub fn draw(&self, shapes: &Vec<Box<dyn Shape<C>>>) -> Vec<C> {
         let mut color_buff = nd::Array2::<Vec<Box<C>>>::from_elem((self.width, self.height), Vec::new());
         for shape in shapes {
