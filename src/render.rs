@@ -65,12 +65,12 @@ impl<C: canvas::Color> Shape<C> for RectShape<C> {
         let canvas_shape_y_min = canvas_pos_y - canvas_size_h_half;
         let canvas_shape_y_max = canvas_pos_y + canvas_size_h_half;
         let canvas_shape_x_min_usize = max(canvas_shape_x_min as usize, 0);
-        let canvas_shape_x_max_usize = min(canvas_shape_x_max as usize, width);
+        let canvas_shape_x_max_usize = min(canvas_shape_x_max as usize + 1, width);
         let canvas_shape_y_min_usize = max(canvas_shape_y_min as usize, 0);
-        let canvas_shape_y_max_usize = min(canvas_shape_y_max as usize, height);
+        let canvas_shape_y_max_usize = min(canvas_shape_y_max as usize + 1, height);
         let mut xr: Vec<f64> = Vec::new();
         let mut yr: Vec<f64> = Vec::new();
-        for xi in canvas_shape_x_min_usize..(canvas_shape_x_max_usize + 1) {
+        for xi in canvas_shape_x_min_usize..(canvas_shape_x_max_usize+1) {
             let x = xi as f64;
             if x < canvas_pos_x {
                 if x >= canvas_shape_x_min {
@@ -95,7 +95,7 @@ impl<C: canvas::Color> Shape<C> for RectShape<C> {
                 }
             }
         }
-        for yi in canvas_shape_y_min_usize..(canvas_shape_y_max_usize + 1) {
+        for yi in canvas_shape_y_min_usize..(canvas_shape_y_max_usize+1) {
             let y = yi as f64;
             if y < canvas_pos_y {
                 if y >= canvas_shape_y_min {
@@ -165,7 +165,116 @@ impl<C: canvas::Color> Shape<C> for CircleShape<C> {
         let canvas_pos_x = self.pos.0 * ratio as f64;
         let canvas_pos_y = self.pos.1 * ratio as f64;
         let canvas_radius = self.radius * ratio as f64;
-        Vec::new() // TODO
+        let canvas_radius_2 = canvas_radius * canvas_radius;
+        let canvas_shape_x_min = canvas_pos_x - canvas_radius;
+        let canvas_shape_x_max = canvas_pos_x + canvas_radius;
+        let canvas_shape_y_min = canvas_pos_y - canvas_radius;
+        let canvas_shape_y_max = canvas_pos_y + canvas_radius;
+        let canvas_shape_x_min_usize = max(canvas_shape_x_min as usize, 0);
+        let canvas_shape_x_max_usize = min(canvas_shape_x_max as usize + 1, width);
+        let canvas_shape_y_min_usize = max(canvas_shape_y_min as usize, 0);
+        let canvas_shape_y_max_usize = min(canvas_shape_y_max as usize + 1, height);
+        let mut dxi: Vec<f64> = Vec::new();
+        let mut dyi: Vec<f64> = Vec::new();
+        let mut xi_y_arch_half: Vec<f64> = Vec::new();
+        let mut yi_x_arch_half: Vec<f64> = Vec::new();
+        for xi in canvas_shape_x_min_usize..(canvas_shape_x_max_usize+1) {
+            let dx = xi as f64 - canvas_pos_x;
+            let dx2 = dx * dx;
+            dxi.push(dx);
+            let arch_half_2 = canvas_radius_2 - dx2;
+            if arch_half_2 > 0.0 {
+                xi_y_arch_half.push(arch_half_2.sqrt());
+            }
+            else {
+                xi_y_arch_half.push(0.0);
+            }
+        }
+        for yi in canvas_shape_y_min_usize..(canvas_shape_y_max_usize+1) {
+            let dy = yi as f64 - canvas_pos_y;
+            let dy2 = dy * dy;
+            dyi.push(dy);
+            let arch_half_2 = canvas_radius_2 - dy2;
+            if arch_half_2 > 0.0 {
+                yi_x_arch_half.push(arch_half_2.sqrt());
+            }
+            else {
+                yi_x_arch_half.push(0.0);
+            }
+        }
+        let mut xr: Vec<f64> = Vec::new();
+        let mut yr: Vec<f64> = Vec::new();
+        for xi in canvas_shape_x_min_usize..(canvas_shape_x_max_usize+1) {
+            for yi in canvas_shape_y_min_usize..(canvas_shape_y_max_usize+1) {
+                let xxi = xi - canvas_shape_x_min_usize;
+                let yyi = yi - canvas_shape_y_min_usize;
+                let dx = dxi[xxi];
+                let dy = dyi[yyi];
+                let x_y_arch_half = xi_y_arch_half[xxi];
+                let y_x_arch_half = yi_x_arch_half[yyi];
+
+                if -y_x_arch_half <= dx && dx <= y_x_arch_half {
+                    xr.push(1.0);
+                }
+                else if dx < 0.0 && -y_x_arch_half <= dx+1.0 {
+                    xr.push(y_x_arch_half+dx+1.0);
+                }
+                else if dx > 0.0 && dx-1.0 <= y_x_arch_half {
+                    xr.push(y_x_arch_half-dx+1.0);
+                }
+                else {
+                    xr.push(0.0);
+                }
+
+                if -x_y_arch_half <= dy && dy <= x_y_arch_half {
+                    yr.push(1.0);
+                }
+                else if dy < 0.0 && -x_y_arch_half <= dy+1.0 {
+                    yr.push(x_y_arch_half+dy+1.0);
+                }
+                else if dy > 0.0 && dy-1.0 <= x_y_arch_half {
+                    yr.push(x_y_arch_half-dy+1.0);
+                }
+                else {
+                    yr.push(0.0);
+                }
+            }
+        }
+
+        let mut entries: Vec<Entry<C>> = Vec::new();
+        for xi in canvas_shape_x_min_usize..canvas_shape_x_max_usize {
+            for yi in canvas_shape_y_min_usize..canvas_shape_y_max_usize {
+                let ic = |x, y| { (x-canvas_shape_x_min_usize) * (canvas_shape_y_max_usize-canvas_shape_y_min_usize+1) + (y-canvas_shape_y_min_usize) };
+                let xi_yi_xr = xr[ic(xi, yi)];
+                let xi_yi_yr = yr[ic(xi, yi)];
+                let xi_1_yi_xr = xr[ic(xi+1, yi)];
+                let xi_1_yi_yr = yr[ic(xi+1, yi)];
+                let xi_yi_1_xr = xr[ic(xi, yi+1)];
+                let xi_yi_1_yr = yr[ic(xi, yi+1)];
+                let xi_1_yi_1_xr = xr[ic(xi+1, yi+1)];
+                let xi_1_yi_1_yr = yr[ic(xi+1, yi+1)];
+                let xr1 = xi_yi_xr.min(xi_1_yi_xr);
+                let xr2 = xi_yi_1_xr.min(xi_1_yi_1_xr);
+                let yr1 = xi_yi_yr.min(xi_yi_1_yr);
+                let yr2 = xi_1_yi_yr.min(xi_1_yi_1_yr);
+                let mut rs = [xr1, xr2, yr1, yr2];
+                rs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                let r = {
+                    if rs[3] < 1e-3 { 0.0 }
+                    else if rs[0] > 1.0-1e-3 { 1.0 }
+                    else if rs[1] < 1e-3 { rs[2]*rs[3]*0.5 }
+                    else if rs[2] > 1.0-1e-3 { 1.0-(1.0-rs[0])*(1.0-rs[1])*0.5 }
+                    else { (rs[1]+rs[2])*0.5 }
+                };
+                let mut cc = self.color.clone();
+                cc.set_opacity(r);
+                entries.push(Entry::<C>{
+                    color: cc,
+                    pos: UsizeVec2::new(xi, yi),
+                })
+            }
+        }
+        entries
     }
 }
 impl<C: canvas::Color> CircleShape<C> {
