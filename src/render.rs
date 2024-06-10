@@ -20,21 +20,21 @@ impl F64Vec2 {
     }
 }
 
-pub struct Entry<C: canvas::Color + std::clone::Clone> {
+pub struct Entry<C: canvas::Color> {
     color: C,
     pos: UsizeVec2, // pos in canvas coordinate
 }
 
-pub trait Shape<C: canvas::Color + std::clone::Clone> {
+pub trait Shape<C: canvas::Color> {
     fn rasterize(&self, width: usize, height: usize, ratio: usize) -> Vec<Entry<C>>;
 }
 
-pub struct RectShape<C: canvas::Color + std::clone::Clone> {
+pub struct RectShape<C: canvas::Color> {
     color: C,
     pos: F64Vec2, // pos in scene coordinate
     size: F64Vec2, // size in scene coordinate
 }
-impl<C: canvas::Color + std::clone::Clone> Shape<C> for RectShape<C> {
+impl<C: canvas::Color> Shape<C> for RectShape<C> {
     fn rasterize(&self, width: usize, height: usize, ratio: usize) -> Vec<Entry<C>> {
         let canvas_pos_x = self.pos.0 * ratio as f64;
         let canvas_pos_y = self.pos.1 * ratio as f64;
@@ -116,7 +116,7 @@ impl<C: canvas::Color + std::clone::Clone> Shape<C> for RectShape<C> {
         entries
     }
 }
-impl<C: canvas::Color + std::clone::Clone> RectShape<C> {
+impl<C: canvas::Color> RectShape<C> {
     pub fn new(c: C, x: f64, y: f64, w: f64, h: f64) -> Self {
         Self {
             color: c,
@@ -126,19 +126,27 @@ impl<C: canvas::Color + std::clone::Clone> RectShape<C> {
     }
 }
 
-pub struct CircleShape<C: canvas::Color + std::clone::Clone> {
+pub struct CircleShape<C: canvas::Color> {
     color: C,
     pos: F64Vec2, // pos in scene coordinate
     radius: f64, // radius in scene coordinate
 }
+impl<C: canvas::Color> Shape<C> for CircleShape<C> {
+    fn rasterize(&self, width: usize, height: usize, ratio: usize) -> Vec<Entry<C>> {
+        let canvas_pos_x = self.pos.0 * ratio as f64;
+        let canvas_pos_y = self.pos.1 * ratio as f64;
+        let canvas_radius = self.radius * ratio as f64;
+        Vec::new() // TODO
+    }
+}
 
-pub struct Renderer<C: canvas::Color + std::clone::Clone> {
+pub struct Renderer<C: canvas::Color> {
     width: usize, // canvas_width
     height: usize, // canvas height
     ratio: usize, // canvas ratio
     bg_color: C,
 }
-impl<C: canvas::Color + std::clone::Clone> Renderer<C> {
+impl<C: canvas::Color> Renderer<C> {
     pub fn new(width: usize, height: usize, ratio: usize) -> Self {
         Self {
             width,

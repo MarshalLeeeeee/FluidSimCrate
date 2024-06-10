@@ -13,7 +13,7 @@ use crate::laplacian_solver;
 /// Smoke simulation performed with Euler method, using symplectic Euler integration
 ///
 /// Examples can be found in ```src/examples/```
-pub struct SingleSmokeGridScene<C: canvas::Color + std::clone::Clone> {
+pub struct SingleSmokeGridScene<C: canvas::Color> {
     /// discrete of time
     dt: f64,
     /// discrete of space
@@ -49,7 +49,7 @@ pub struct SingleSmokeGridScene<C: canvas::Color + std::clone::Clone> {
     /// if has infinity smoke from source
     is_infinite_smoke: bool,
 }
-impl<C: canvas::Color + std::clone::Clone + 'static> SingleSmokeGridScene<C> {
+impl<C: canvas::Color + 'static> SingleSmokeGridScene<C> {
     
     /// Get the config table
     pub fn get_config_map() -> Map<String, Value> {
@@ -246,7 +246,7 @@ impl<C: canvas::Color + std::clone::Clone + 'static> SingleSmokeGridScene<C> {
 /// Smoke simulation performed with Lagrangian method
 ///
 /// Examples can be found in ```src/examples/```
-pub struct SingleSmokeParticleScene<C: canvas::Color + std::clone::Clone> {
+pub struct SingleSmokeParticleScene<C: canvas::Color> {
     /// discrete of time
     dt: f64,
     /// discrete of space
@@ -288,7 +288,7 @@ pub struct SingleSmokeParticleScene<C: canvas::Color + std::clone::Clone> {
     /// particle spatial index
     p_grid_index: nd::Array2::<Vec<usize>>,
 }
-impl<C: canvas::Color + std::clone::Clone> SingleSmokeParticleScene<C> {
+impl<C: canvas::Color + 'static> SingleSmokeParticleScene<C> {
      
     /// Get the config table
     pub fn get_config_map() -> Map<String, Value> {

@@ -13,7 +13,7 @@ pub trait TempColor {
 }
 
 /// Any customized color type should implement this trait
-pub trait Color {
+pub trait Color : std::clone::Clone {
     type TypeTempColor;
     /// Convert the customized color struct representation to u32
     fn to_u32(&self) -> u32;
@@ -174,7 +174,7 @@ impl RGBAColor {
 /// - width: the width of the window
 /// - height: the height of the window
 /// - tick_dt: the minimal update interval in millis
-pub struct Canvas<C: Color + std::clone::Clone> {
+pub struct Canvas<C: Color> {
     ratio: usize,
     width: usize,
     height: usize,
@@ -184,7 +184,7 @@ pub struct Canvas<C: Color + std::clone::Clone> {
     tick_dt: u64,
     renderer: render::Renderer<C>,
 }
-impl<C: Color + std::clone::Clone> Canvas<C> {
+impl<C: Color> Canvas<C> {
     /// Construct a canvas from json configs
     pub fn new_by_parser(parser: &Value) -> Self {
         let ratio = parser::get_from_parser_usize(parser, "canvas_ratio");
