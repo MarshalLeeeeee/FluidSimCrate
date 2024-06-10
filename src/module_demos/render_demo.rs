@@ -13,7 +13,7 @@ fn main() {
             let xx : f64 = 0.5_f64 + x as f64 * 5.0_f64;
             let yy : f64 = 0.5_f64 + y as f64 * 5.0_f64;
             shapes.push(Box::new(render::RectShape::new(
-                canvas::RGBAColor::new(0, 255, 0),
+                canvas::RGBAColor::new_with_a(0, 255, 0, 255),
                 xx, yy,
                 1_f64, 1_f64,
             )));

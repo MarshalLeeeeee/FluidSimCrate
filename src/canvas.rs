@@ -20,7 +20,7 @@ pub trait Color {
     fn to_tc(&self) -> Self::TypeTempColor where Self::TypeTempColor:TempColor+Add+Mul<u32>+Div<u32>;
     fn remove_opacity(self) -> Self;
     fn set_opacity(&mut self, r: f64);
-    fn _do_stack_color(colors: Vec<Box<Self>>) -> Box<Self>;
+    fn _do_stack_color(colors: Vec<Box<Self>>) -> Option<Box<Self>>;
     fn stack_colors(colors: Vec<Box<Self>>) -> Option<Box<Self>>;
     fn stack_colors_with_default(colors: Vec<Box<Self>>, default_color: Box<Self>) -> Box<Self>;
     fn default() -> Self;
@@ -101,7 +101,7 @@ impl Color for RGBAColor {
     fn to_tc(&self) -> Self::TypeTempColor where Self::TypeTempColor:TempColor+Add+Mul<u32>+Div<u32> {
         RGBATempColor(self.0 as u32, self.1 as u32, self.2 as u32, self.3 as u32)
     }
-    fn _do_stack_color(colors: Vec<Box<Self>>) -> Box<Self> {
+    fn _do_stack_color(colors: Vec<Box<Self>>) -> Option<Box<Self>> {
         assert!(!colors.is_empty(), "Colors should not be empty");
         let mut tc = Self(0, 0, 0, 0).to_tc();
         let mut a_sum: u32 = 0;
@@ -112,15 +112,20 @@ impl Color for RGBAColor {
             tc = tc + tcc;
             a_sum += a;
         }
-        tc = tc * 255 / a_sum;
-        Box::new(tc.to_c().remove_opacity())
+        if a_sum > 0 {
+            tc = tc * 255 / a_sum;
+            Some(Box::new(tc.to_c().remove_opacity()))
+        }
+        else {
+            None
+        }
     }
     fn stack_colors(colors: Vec<Box<Self>>) -> Option<Box<Self>> {
         if colors.is_empty() {
             None
         }
         else {
-            Some(Self::_do_stack_color(colors))
+            Self::_do_stack_color(colors)
         }
     }
     fn stack_colors_with_default(colors: Vec<Box<Self>>, default_color: Box<Self>) -> Box<Self> {
@@ -128,7 +133,10 @@ impl Color for RGBAColor {
             default_color
         }
         else {
-            Self::_do_stack_color(colors)
+            match Self::_do_stack_color(colors) {
+                Some(c) => c,
+                None => default_color,
+            }
         }
     }
     fn default() -> Self {
@@ -151,7 +159,7 @@ impl Color for RGBAColor {
     fn mix(self, other: Self) -> Self {
         let self_box = Box::new(self);
         let other_box = Box::new(other);
-        *(Self::_do_stack_color(vec![self_box, other_box]))
+        *(Self::_do_stack_color(vec![self_box, other_box]).unwrap())
     }
 }
 impl RGBAColor {
