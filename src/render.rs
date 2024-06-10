@@ -1,3 +1,4 @@
+use std::cmp::{min, max};
 use ndarray as nd;
 use crate::canvas;
 
@@ -23,12 +24,6 @@ pub struct Entry<C: canvas::Color + std::clone::Clone> {
     color: C,
     pos: UsizeVec2, // pos in canvas coordinate
 }
-impl<C: canvas::Color + std::clone::Clone> Entry<C> {
-    fn print_self(&self) {
-        self.color.print_color();
-        println!("Canvas pos: {} {}", self.pos.0, self.pos.1);
-    }
-}
 
 pub trait Shape<C: canvas::Color + std::clone::Clone> {
     fn rasterize(&self, width: usize, height: usize, ratio: usize) -> Vec<Entry<C>>;
@@ -51,115 +46,67 @@ impl<C: canvas::Color + std::clone::Clone> Shape<C> for RectShape<C> {
         let canvas_shape_x_max = canvas_pos_x + canvas_size_w_half;
         let canvas_shape_y_min = canvas_pos_y - canvas_size_h_half;
         let canvas_shape_y_max = canvas_pos_y + canvas_size_h_half;
+        let canvas_shape_x_min_usize = max(canvas_shape_x_min as usize, 0);
+        let canvas_shape_x_max_usize = min(canvas_shape_x_max as usize, width);
+        let canvas_shape_y_min_usize = max(canvas_shape_y_min as usize, 0);
+        let canvas_shape_y_max_usize = min(canvas_shape_y_max as usize, height);
         let mut xr: Vec<f64> = Vec::new();
         let mut yr: Vec<f64> = Vec::new();
-        let mut xr_min_i: i32 = -1;
-        let mut xr_max_i: i32 = -1;
-        let mut yr_min_i: i32 = -1;
-        let mut yr_max_i: i32 = -1;
-        for xi in 0..(width+1) {
+        for xi in canvas_shape_x_min_usize..(canvas_shape_x_max_usize + 1) {
             let x = xi as f64;
             if x < canvas_pos_x {
                 if x >= canvas_shape_x_min {
                     xr.push(1.0);
-                    if xr_min_i == -1 {
-                        xr_min_i = xi as i32;
-                    }
-                    if xr_min_i != -1 {
-                        xr_max_i = xi as i32;
-                    }
                 }
                 else if x+1.0 < canvas_shape_x_min {
                     xr.push(0.0);
                 }
                 else {
                     xr.push(x+1.0-canvas_shape_x_min);
-                    if xr_min_i == -1 {
-                        xr_min_i = xi as i32;
-                    }
-                    if xr_min_i != -1 {
-                        xr_max_i = xi as i32;
-                    }
                 }
             }
             else {
                 if x <= canvas_shape_x_max {
                     xr.push(1.0);
-                    if xr_min_i == -1 {
-                        xr_min_i = xi as i32;
-                    }
-                    if xr_min_i != -1 {
-                        xr_max_i = xi as i32;
-                    }
                 }
                 else if x-1.0 > canvas_shape_x_max {
                     xr.push(0.0);
                 }
                 else {
                     xr.push(canvas_shape_x_max-x+1.0);
-                    if xr_min_i == -1 {
-                        xr_min_i = xi as i32;
-                    }
-                    if xr_min_i != -1 {
-                        xr_max_i = xi as i32;
-                    }
                 }
             }
         }
-        for yi in 0..(height+1) {
+        for yi in canvas_shape_y_min_usize..(canvas_shape_y_max_usize + 1) {
             let y = yi as f64;
             if y < canvas_pos_y {
                 if y >= canvas_shape_y_min {
                     yr.push(1.0);
-                    if yr_min_i == -1 {
-                        yr_min_i = yi as i32;
-                    }
-                    if yr_min_i != -1 {
-                        yr_max_i = yi as i32;
-                    }
                 }
                 else if y+1.0 < canvas_shape_y_min {
                     yr.push(0.0);
                 }
                 else {
                     yr.push(y+1.0-canvas_shape_y_min);
-                    if yr_min_i == -1 {
-                        yr_min_i = yi as i32;
-                    }
-                    if yr_min_i != -1 {
-                        yr_max_i = yi as i32;
-                    }
                 }
             }
             else {
                 if y <= canvas_shape_y_max {
                     yr.push(1.0);
-                    if yr_min_i == -1 {
-                        yr_min_i = yi as i32;
-                    }
-                    if yr_min_i != -1 {
-                        yr_max_i = yi as i32;
-                    }
                 }
                 else if y-1.0 > canvas_shape_y_max {
                     yr.push(0.0);
                 }
                 else {
                     yr.push(canvas_shape_y_max-y+1.0);
-                    if yr_min_i == -1 {
-                        yr_min_i = yi as i32;
-                    }
-                    if yr_min_i != -1 {
-                        yr_max_i = yi as i32;
-                    }
                 }
             }
         }
         let mut entries: Vec<Entry<C>> = Vec::new();
-        for xi in (xr_min_i as usize)..(xr_max_i as usize - 1) {
-            for yi in (yr_min_i as usize)..(yr_max_i as usize - 1) {
+        for xi in canvas_shape_x_min_usize..canvas_shape_x_max_usize {
+            for yi in canvas_shape_y_min_usize..canvas_shape_y_max_usize {
                 let mut cc = self.color.clone();
-                cc.set_opacity(xr[xi].min(xr[xi+1]) * yr[yi].min(yr[yi+1]));
+                cc.set_opacity(xr[xi-canvas_shape_x_min_usize].min(xr[xi+1-canvas_shape_x_min_usize]) * yr[yi-canvas_shape_y_min_usize].min(yr[yi+1-canvas_shape_y_min_usize]));
                 entries.push(Entry::<C>{
                     color: cc,
                     pos: UsizeVec2::new(xi, yi),
