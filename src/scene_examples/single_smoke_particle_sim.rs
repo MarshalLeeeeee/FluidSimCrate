@@ -8,17 +8,17 @@ use fluid_sim::scene;
 /// Different configs can be put in [...], or change the corresponding json file
 fn main() {
     let raw_parser_maps = vec!(
-        canvas::Canvas::get_config_map(),
-        scene::single_smoke::SingleSmokeParticleScene::get_config_map(),
+        canvas::Canvas::<canvas::RGBAColor>::get_config_map(),
+        scene::single_smoke::SingleSmokeParticleScene::<canvas::RGBAColor>::get_config_map(),
     );
     let parser_map = parser::register(raw_parser_maps);
     let parser = parser::parse(parser_map);
 
-    let mut canvas = canvas::Canvas::new_by_parser(&parser);
-    let mut scene = scene::single_smoke::SingleSmokeParticleScene::new_by_parser(&parser);
+    let mut canvas = canvas::Canvas::<canvas::RGBAColor>::new_by_parser(&parser);
+    let mut scene = scene::single_smoke::SingleSmokeParticleScene::<canvas::RGBAColor>::new_by_parser(&parser);
 
     while canvas.is_valid() {
         scene.sim();
-        canvas.refresh(&scene.visualize_density());
+        canvas.draw(&scene.visualize_density());
     }
 }

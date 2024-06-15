@@ -1,13 +1,13 @@
 {
-    "canvas_ratio": 2,
-    "scene_width": 128,
-    "scene_height": 128,
+    "canvas_ratio": 32,
+    "scene_width": 32,
+    "scene_height": 32,
     "tick_dt": 5,
     "gy": 1.0,
     "dt": 0.1,
-    "c_air_r": 0,
-    "c_air_g": 0,
-    "c_air_b": 0,
+    "c_air_r": 100,
+    "c_air_g": 100,
+    "c_air_b": 100,
     "c_smoke_r": 0,
     "c_smoke_g": 0,
     "c_smoke_b": 255,
@@ -15,5 +15,5 @@
     "init_d_x_max": 8,
     "init_d_y_min": 4,
     "init_d_y_max": 8,
-    "particle_cnt_per_cell": 4
+    "particle_cnt_per_cell": 1
 }

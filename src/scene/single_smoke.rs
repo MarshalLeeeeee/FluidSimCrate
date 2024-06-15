@@ -12,7 +12,7 @@ use crate::laplacian_solver;
 
 /// Smoke simulation performed with Euler method, using symplectic Euler integration
 ///
-/// Examples can be found in ```src/examples/```
+/// Examples can be found in ```src/scene_examples/```
 pub struct SingleSmokeGridScene<C: canvas::Color> {
     /// discrete of time
     dt: f64,
@@ -245,7 +245,7 @@ impl<C: canvas::Color + 'static> SingleSmokeGridScene<C> {
 
 /// Smoke simulation performed with Lagrangian method
 ///
-/// Examples can be found in ```src/examples/```
+/// Examples can be found in ```src/scene_examples/```
 pub struct SingleSmokeParticleScene<C: canvas::Color> {
     /// discrete of time
     dt: f64,
@@ -299,6 +299,8 @@ impl<C: canvas::Color + 'static> SingleSmokeParticleScene<C> {
         m.insert(String::from("gy"), Value::Number(Number::from_f64(9.8_f64).unwrap()));
         m.insert(String::from("rho_air"), Value::Number(Number::from_f64(1_f64).unwrap()));
         m.insert(String::from("rho_smoke"), Value::Number(Number::from_f64(0.5_f64).unwrap()));
+        m.insert(String::from("scene_width"), Value::Number(Number::from(255_u8)));
+        m.insert(String::from("scene_height"), Value::Number(Number::from(255_u8)));
         m.insert(String::from("c_air_r"), Value::Number(Number::from(255_u8)));
         m.insert(String::from("c_air_g"), Value::Number(Number::from(255_u8)));
         m.insert(String::from("c_air_b"), Value::Number(Number::from(255_u8)));
@@ -327,8 +329,8 @@ impl<C: canvas::Color + 'static> SingleSmokeParticleScene<C> {
         let c_smoke_r = parser::get_from_parser_u8(parser, "c_smoke_r");
         let c_smoke_g = parser::get_from_parser_u8(parser, "c_smoke_g");
         let c_smoke_b = parser::get_from_parser_u8(parser, "c_smoke_b");
-        let w = parser::get_from_parser_usize(parser, "width");
-        let h = parser::get_from_parser_usize(parser, "height");
+        let w = parser::get_from_parser_usize(parser, "scene_width");
+        let h = parser::get_from_parser_usize(parser, "scene_height");
         let init_d_x_min = parser::get_from_parser_usize(parser, "init_d_x_min");
         let init_d_x_max = parser::get_from_parser_usize(parser, "init_d_x_max");
         let init_d_y_min = parser::get_from_parser_usize(parser, "init_d_y_min");
@@ -584,37 +586,62 @@ impl<C: canvas::Color + 'static> SingleSmokeParticleScene<C> {
     /// Do simulation in the temporal step
     pub fn sim(&mut self) {
         self._update_grid_index();
-        self._pressure_projection();
-        self._apply_buoyancy();
-        self._advection();
+        // self._pressure_projection();
+        // self._apply_buoyancy();
+        // self._advection();
     }
 
     /// Visualization of smoke density
-    pub fn visualize_density(&self) -> Vec<C> {
+    // pub fn visualize_density(&self) -> Vec<C> {
+    //     let (w, h) = self.p_grid_index.dim();
+    //     let mut buffer = Vec::with_capacity(w* h);
+    //     for j in 0..h {
+    //         for i in 0..w {
+    //             let mut smoke_particle_cnt = 0;
+    //             let mut total_particle_cnt = 0;
+    //             for pi in &self.p_grid_index[[i, j]] {
+    //                 if self.p_is_smoke[*pi] {
+    //                     smoke_particle_cnt += 1;
+    //                 }
+    //                 total_particle_cnt += 1;
+    //             }
+    //             let mut smoke_portion = 0_f64;
+    //             if total_particle_cnt > 0 {
+    //                 smoke_portion = smoke_particle_cnt as f64 / total_particle_cnt as f64;
+    //             }
+    //             let mut cs = self.c_smoke.clone();
+    //             cs.set_opacity(smoke_portion);
+    //             let mut ca = self.c_air.clone();
+    //             ca.set_opacity(1.0 - smoke_portion);
+    //             buffer.push(cs.mix(ca));
+    //         }
+    //     }
+    //     buffer.reverse();
+    //     buffer
+    // }
+
+    pub fn visualize_density(&self) -> Vec<Box<dyn render::Shape::<C>>> {
         let (w, h) = self.p_grid_index.dim();
-        let mut buffer = Vec::with_capacity(w* h);
-        for j in 0..h {
-            for i in 0..w {
-                let mut smoke_particle_cnt = 0;
-                let mut total_particle_cnt = 0;
+        let mut shapes: Vec<Box<dyn render::Shape::<C>>> = Vec::new();
+        for i in 0..w {
+            for j in 0..h {
                 for pi in &self.p_grid_index[[i, j]] {
+                    let mut c = C::default();
                     if self.p_is_smoke[*pi] {
-                        smoke_particle_cnt += 1;
+                        c = self.c_smoke.clone();
                     }
-                    total_particle_cnt += 1;
+                    else {
+                        c = self.c_air.clone();
+                    }
+                    shapes.push(Box::new(render::CircleShape::<C>::new(
+                        c,
+                        (w-1) as f64 - self.p_px[*pi],
+                        (h-1) as f64 - self.p_py[*pi],
+                        0.4,
+                    )));
                 }
-                let mut smoke_portion = 0_f64;
-                if total_particle_cnt > 0 {
-                    smoke_portion = smoke_particle_cnt as f64 / total_particle_cnt as f64;
-                }
-                let mut cs = self.c_smoke.clone();
-                cs.set_opacity(smoke_portion);
-                let mut ca = self.c_air.clone();
-                ca.set_opacity(1.0 - smoke_portion);
-                buffer.push(cs.mix(ca));
             }
         }
-        buffer.reverse();
-        buffer
+        shapes
     }
 }
