@@ -1,7 +1,7 @@
 /// Module for canvas rendering in a separate window
 
 use std::ops::{Add, Mul, Div};
-use std::{thread, time};
+use std::time;
 use serde_json::{Value, Map, Number};
 use minifb::{Window, WindowOptions, Scale, ScaleMode, Key};
 use crate::parser;
