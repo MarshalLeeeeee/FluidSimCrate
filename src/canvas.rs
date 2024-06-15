@@ -195,10 +195,8 @@ impl RGBAColor {
 /// The following params are configurable
 /// - width: the width of the scene
 /// - height: the height of the scene
-/// - ratio: the ratio between window solution and scene solution. I.e., the window solution is ```(width*ratio, height*ratio)```
 /// - tick_dt: the minimal update interval in millis
 pub struct Canvas<C: Color> {
-    ratio: usize,
     width: usize,
     height: usize,
     buffer: Vec<u32>,
@@ -244,7 +242,6 @@ impl<C: Color> Canvas<C> {
             panic!("Create canvas error: {}", e);
         });
         Self {
-            ratio,
             width,
             height,
             buffer,
